@@ -216,4 +216,4 @@ uvicorn src.serving.api:app --reload
 ---
 
 ## **📄 License**
-MIT or your preferred license.
+No license.
