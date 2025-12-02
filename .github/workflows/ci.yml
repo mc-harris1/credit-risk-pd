@@ -29,7 +29,7 @@ jobs:
       - name: Install package into uv environment (editable)
         run: |
           # Install the project into the uv-managed environment so `uv run` sees it
-          uvx pip install -e .
+          uv pip install -e .
 
       - name: Run ruff lint
         run: |
