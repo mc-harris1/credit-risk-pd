@@ -26,11 +26,25 @@ jobs:
         run: |
           uv sync --all-groups
 
+      - name: Install package into uv environment (editable)
+        run: |
+          # Install the project into the uv-managed environment so `uv run` sees it
+          uv pip install -e .
+
       - name: Run ruff lint
         run: |
           uvx ruff check src tests
 
+      - name: "Debug: print Python info"
+        run: |
+          echo "--- python version (uv run) ---"
+          uv run python -V || python -V
+          echo "--- sys.path (first 10 entries) ---"
+          uv run python -c "import sys; import json; print(json.dumps(sys.path[:10]))" || python -c "import sys, json; print(json.dumps(sys.path[:10]))"
+
       - name: Run tests with coverage
+        env:
+          PYTHONPATH: "."
         run: |
           uv run pytest --cov=src --cov-report=xml --cov-report=html
 

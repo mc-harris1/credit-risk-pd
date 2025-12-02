@@ -1,0 +1,16 @@
+# Exclude raw datasets and large artifacts from build context
+data/raw/
+models/artifacts/
+
+# Python/IDE files
+__pycache__/
+*.pyc
+
+# Local environment
+.env
+
+# macOS
+.DS_Store
+
+# Other
+*.log
