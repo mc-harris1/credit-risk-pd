@@ -350,11 +350,6 @@ uv run uvicorn src.serving.api:app --reload --host 0.0.0.0 --port 8000
 
 ---
 
-<<<<<<< HEAD
 ## 📄 License
 
-MIT or your preferred license.
-=======
-## **📄 License**
 No license.
->>>>>>> b97d1e2a5d6b8e04e6673e9b30f39182f1034b6a
