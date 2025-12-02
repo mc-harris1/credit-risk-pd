@@ -26,15 +26,15 @@ All commands assume:
 
 ## 📌 Features
 
-- **Probability of Default (PD)** prediction for consumer loans  
-- Time-based train/validation/test split  
-- LightGBM / XGBoost and logistic regression baseline  
-- SHAP-based explainability (global + local)  
-- FastAPI real-time scoring service  
-- Dockerized deployment with a consistent image name/tag strategy  
-- Linting + formatting via `ruff` (locally and in CI)  
-- Tests via `pytest` with coverage reports (XML + HTML)  
-- Optional Streamlit UI for interactive demo  
+- **Probability of Default (PD)** prediction for consumer loans
+- Time-based train/validation/test split
+- LightGBM / XGBoost and logistic regression baseline
+- SHAP-based explainability (global + local)
+- FastAPI real-time scoring service
+- Dockerized deployment with a consistent image name/tag strategy
+- Linting + formatting via `ruff` (locally and in CI)
+- Tests via `pytest` with coverage reports (XML + HTML)
+- Optional Streamlit UI for interactive demo
 
 ---
 
@@ -102,16 +102,16 @@ credit-risk-pd/
 
 This project uses **LendingClub-style consumer loan data**, featuring:
 
-- Loan amount, term, interest rate  
-- Income, employment length, home ownership  
-- Debt-to-income (DTI), revolving utilization  
-- Grade & subgrade  
+- Loan amount, term, interest rate
+- Income, employment length, home ownership
+- Debt-to-income (DTI), revolving utilization
+- Grade & subgrade
 - Loan status (fully paid, default, charged-off, etc.)
 
 ### Target Definition
 
 ```text
-default = 1 → charged-off, default, or severe delinquency  
+default = 1 → charged-off, default, or severe delinquency
 default = 0 → fully paid
 ```
 
@@ -123,38 +123,41 @@ Ambiguous statuses (“Current”, “In Grace Period”, etc.) are excluded.
 
 ### 1. Preprocessing
 
-- Clean categories, handle missing data  
-- Filter relevant loan statuses  
-- Remove leakage fields  
+- Clean categories, handle missing data
+- Filter relevant loan statuses
+- Remove leakage fields
 
 ### 2. Feature Engineering
 
-- Loan-to-income ratio  
-- DTI normalization  
-- Interest rate buckets  
-- Grade & subgrade encoding  
-- One-hot or target encoding  
+- Loan-to-income ratio
+- DTI normalization
+- Interest rate buckets
+- Grade & subgrade encoding
+- One-hot or target encoding
 
 ### 3. Modeling
 
 Baseline:
+
 - Logistic Regression
 
 Advanced:
-- LightGBM / XGBoost  
-- Optional probability calibration  
+
+- LightGBM / XGBoost
+- Optional probability calibration
 
 Metrics:
-- ROC-AUC  
-- PR-AUC  
-- Brier Score  
-- Calibration curves  
-- Confusion matrices  
+
+- ROC-AUC
+- PR-AUC
+- Brier Score
+- Calibration curves
+- Confusion matrices
 
 ### 4. Explainability (SHAP)
 
-- Global feature importance  
-- Local explanations per applicant  
+- Global feature importance
+- Local explanations per applicant
 
 ---
 
@@ -162,10 +165,10 @@ Metrics:
 
 ### Endpoints
 
-**GET /health**  
+**GET /health**
 Health check.
 
-**POST /score**  
+**POST /score**
 Returns PD, risk band, and (optionally) SHAP-based explanations.
 
 ### Run API (local)
@@ -174,7 +177,7 @@ Returns PD, risk band, and (optionally) SHAP-based explanations.
 uv run uvicorn src.serving.api:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Swagger UI:  
+Swagger UI:
 `http://localhost:8000/docs`
 
 ---
@@ -236,9 +239,9 @@ The `.pre-commit-config.yaml` is configured to:
 
 The **Dockerfile** lives at `docker/Dockerfile` and is built around:
 
-- Python 3.11 slim base image  
-- `uv` installed in the container  
-- `uv sync --no-dev` for production-only dependencies  
+- Python 3.11 slim base image
+- `uv` installed in the container
+- `uv sync --no-dev` for production-only dependencies
 - Default command: run the FastAPI app via `uvicorn`
 
 Example local build & run:
@@ -253,7 +256,7 @@ docker run -p 8000:8000 credit-risk-api
 
 The GitHub Actions workflow uses a consistent image name/tag strategy:
 
-- Base name:  
+- Base name:
   `ghcr.io/<owner>/credit-risk-pd`
 - Tags:
   - `ghcr.io/<owner>/credit-risk-pd:<GITHUB_SHA>`
@@ -272,14 +275,14 @@ The CI job builds the image with both tags so you get:
 
 The CI workflow (`.github/workflows/ci.yml`) runs on pushes and PRs and:
 
-1. Checks out the repo  
-2. Sets up Python 3.11  
-3. Installs `uv`  
-4. Runs `uv sync --all-groups` (including dev tools)  
-5. Runs `pre-commit` on all files (includes `ruff`)  
-6. Runs `ruff` explicitly on `src` and `tests`  
-7. Runs `pytest` with coverage reports  
-8. Builds a Docker image with consistent tags  
+1. Checks out the repo
+2. Sets up Python 3.11
+3. Installs `uv`
+4. Runs `uv sync --all-groups` (including dev tools)
+5. Runs `pre-commit` on all files (includes `ruff`)
+6. Runs `ruff` explicitly on `src` and `tests`
+7. Runs `pytest` with coverage reports
+8. Builds a Docker image with consistent tags
 9. Uploads coverage artifacts (HTML + XML) for inspection
 
 So every PR gets:
@@ -341,12 +344,12 @@ uv run uvicorn src.serving.api:app --reload --host 0.0.0.0 --port 8000
 
 ## 📦 Future Work
 
-- Add LGD/EAD for full expected loss modeling  
-- Survival analysis for time-to-default  
-- Reject inference to correct approval bias  
-- Data & score drift monitoring (PSI, feature drift)  
-- Push Docker images to GHCR or another registry from CI  
-- Deploy to AWS (Lambda/ECS), GCP (Cloud Run), or Azure  
+- Add LGD/EAD for full expected loss modeling
+- Survival analysis for time-to-default
+- Reject inference to correct approval bias
+- Data & score drift monitoring (PSI, feature drift)
+- Push Docker images to GHCR or another registry from CI
+- Deploy to AWS (Lambda/ECS), GCP (Cloud Run), or Azure
 
 ---
 
