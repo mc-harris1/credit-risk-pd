@@ -29,9 +29,15 @@ RUN uv sync --no-dev --frozen || uv sync --no-dev
 
 # Copy source code after dependencies for better caching
 COPY src ./src
-COPY models ./models
 COPY streamlit_app ./streamlit_app
-COPY data ./data
+
+# Only copy model metadata (avoid large model artifact files in CI/builds)
+COPY models/metadata ./models/metadata
+
+# Copy only processed/interim data needed at runtime; do NOT copy raw CSVs
+COPY data/interim ./data/interim
+COPY data/processed ./data/processed
+
 COPY README.md .
 
 EXPOSE 8000
