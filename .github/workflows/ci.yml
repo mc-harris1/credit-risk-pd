@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh -s -- -y
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install dependencies (all groups)
+        run: |
+          uv sync --all-groups
+
+      - name: Run pre-commit hooks
+        run: |
+          uv run pre-commit run --all-files
+
+      - name: Run ruff lint
+        run: |
+          uvx ruff check src tests
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest --cov=src --cov-report=xml --cov-report=html
+
+      - name: Upload coverage XML (for CI tools)
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+      - name: Upload HTML coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: htmlcov/
+
+      - name: Build Docker image with consistent tags
+        run: |
+          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/credit-risk-pd"
+          docker build -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest -f docker/Dockerfile .
+
+      # Uncomment this to push Docker images to GHCR:
+      #
+      # - name: Log in to GitHub Container Registry
+      #   uses: docker/login-action@v2
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
+      #
+      # - name: Push Docker images
+      #   run: |
+      #     IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/credit-risk-pd"
+      #     docker push $IMAGE_NAME:${{ github.sha }}
+      #     docker push $IMAGE_NAME:latest
