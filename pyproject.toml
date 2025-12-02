@@ -71,6 +71,7 @@ docstring-code-format = true
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra -q"
+pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.mypy]
