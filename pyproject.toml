@@ -40,6 +40,7 @@ dev = [
   "ruff>=0.6.0",
   "mypy>=1.10.0",
   "pre-commit>=3.8.0",
+  "ipykernel>=7.1.0",
 ]
 
 [tool.uv]
@@ -70,7 +71,7 @@ docstring-code-format = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "-ra -q"
+addopts = "-v"
 pythonpath = ["src"]
 testpaths = ["tests"]
 
