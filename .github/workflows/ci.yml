@@ -35,6 +35,13 @@ jobs:
         run: |
           uvx ruff check src tests
 
+      - name: "Debug: print Python info"
+        run: |
+          echo "--- python version (uv run) ---"
+          uv run python -V || python -V
+          echo "--- sys.path (first 10 entries) ---"
+          uv run python -c "import sys; import json; print(json.dumps(sys.path[:10]))" || python -c "import sys, json; print(json.dumps(sys.path[:10]))"
+
       - name: Run tests with coverage
         env:
           PYTHONPATH: "."
