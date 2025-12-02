@@ -1,8 +1,6 @@
-import pandas as pd
 
 from src.config import INTERIM_DATA_DIR
 from src.data.load_data import load_raw_loans
-
 
 DEFAULT_INPUT_FILE = "loans.csv"
 DEFAULT_OUTPUT_FILE = "loans_preprocessed.parquet"
