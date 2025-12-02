@@ -20,9 +20,9 @@ def build_features(
 
     # Stub target: you will replace with real logic (status -> default)
     if "loan_status" in df:
-        df["default"] = df["loan_status"].isin(
-            ["Charged Off", "Default", "Late (31-120 days)"]
-        ).astype(int)
+        df["default"] = (
+            df["loan_status"].isin(["Charged Off", "Default", "Late (31-120 days)"]).astype(int)
+        )
 
     PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
     output_path = PROCESSED_DATA_DIR / output_file
