@@ -26,10 +26,6 @@ jobs:
         run: |
           uv sync --all-groups
 
-      - name: Run pre-commit hooks
-        run: |
-          uv run pre-commit run --all-files
-
       - name: Run ruff lint
         run: |
           uvx ruff check src tests
