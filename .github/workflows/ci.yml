@@ -9,7 +9,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,6 +41,13 @@ jobs:
           echo "--- sys.path (first 10 entries) ---"
           uv run python -c "import sys; import json; print(json.dumps(sys.path[:10]))" || python -c "import sys, json; print(json.dumps(sys.path[:10]))"
 
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Run tests with coverage
         env:
           PYTHONPATH: "."
@@ -60,22 +66,14 @@ jobs:
           name: coverage-html
           path: htmlcov/
 
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Build Docker image with consistent tags
         run: |
           IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/credit-risk-pd"
           docker build -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest -f docker/Dockerfile .
-
-      # Uncomment this to push Docker images to GHCR:
-      #
-      # - name: Log in to GitHub Container Registry
-      #   uses: docker/login-action@v2
-      #   with:
-      #     registry: ghcr.io
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
-      #
-      # - name: Push Docker images
-      #   run: |
-      #     IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/credit-risk-pd"
-      #     docker push $IMAGE_NAME:${{ github.sha }}
-      #     docker push $IMAGE_NAME:latest
