@@ -1,4 +1,5 @@
 import os
+
 from src.config import INTERIM_DATA_DIR
 from src.data.load_data import load_raw_loans
 

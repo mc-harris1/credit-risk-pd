@@ -1,6 +1,7 @@
-from fastapi.testclient import TestClient
-import sys
 import os
+import sys
+
+from fastapi.testclient import TestClient
 
 # Add the parent directory of 'src' to sys.path
 # Assuming 'tests' and 'src' are siblings in your project root
