@@ -1,4 +1,4 @@
-
+import os
 from src.config import INTERIM_DATA_DIR
 from src.data.load_data import load_raw_loans
 
@@ -16,8 +16,8 @@ def preprocess_loans(
     # TODO: add real cleaning logic
     df = df.dropna(axis=0, how="all")
 
-    INTERIM_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = INTERIM_DATA_DIR / output_file
+    # INTERIM_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    output_path = os.path.join(INTERIM_DATA_DIR, output_file)
     df.to_parquet(output_path, index=False)
     print(f"Saved preprocessed loans to {output_path}")
 
