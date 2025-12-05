@@ -5,7 +5,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from src.config import INTERIM_DATA_DIR
+from src.config import INTERIM_DATA_DIR, RAW_DATA_DIR
 from src.data.load_data import load_raw_loans
 
 DEFAULT_OUTPUT_FILE = "loans_preprocessed.parquet"
@@ -17,11 +17,15 @@ def preprocess_loans(
     dfs = []
 
     """Basic preprocessing stub: load, lightly clean, and save interim data."""
-    for input_file in os.listdir("data/raw"):  # Look in raw data directory
+    for input_file in os.listdir(RAW_DATA_DIR):  # Look in raw data directory
         # if the file is of the .csv format and matches the following pattern - _2007_to_2018Q4.csv
+        # Skip test.csv and other files that don't match the production data pattern
         if input_file.endswith(".csv") and "_2007_to_2018Q4" in input_file:
             temp_df = load_raw_loans(input_file)
             dfs.append(temp_df)
+
+    if not dfs:
+        raise ValueError("No matching data files found in raw data directory")
 
     df = pd.concat(dfs, ignore_index=True)
 
