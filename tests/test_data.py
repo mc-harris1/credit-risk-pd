@@ -17,6 +17,7 @@ def test_load_raw_loans():
 def test_preprocess_loans():
     """Test that preprocess_loans correctly concatenates multiple data files."""
     import src.config as config_module
+    import src.data.load_data as load_data_module
     import src.data.preprocess as preprocess_module
 
     # Save original RAW_DATA_DIR from both modules
@@ -56,9 +57,10 @@ def test_preprocess_loans():
         mock_data_1.to_csv(accepted_file, index=False)
         mock_data_2.to_csv(rejected_file, index=False)
 
-        # Monkey-patch RAW_DATA_DIR in both modules to point to our temp directory
+        # Monkey-patch RAW_DATA_DIR in all modules
         config_module.RAW_DATA_DIR = temp_dir
         preprocess_module.RAW_DATA_DIR = temp_dir
+        load_data_module.RAW_DATA_DIR = temp_dir
 
         output_filename = "test_loans_preprocessed.parquet"
         preprocess_loans(output_file=output_filename)
@@ -74,9 +76,10 @@ def test_preprocess_loans():
 
         os.remove(output_path)
     finally:
-        # Restore original RAW_DATA_DIR in both modules
+        # Restore original RAW_DATA_DIR in all modules
         config_module.RAW_DATA_DIR = original_raw_dir_config
         preprocess_module.RAW_DATA_DIR = original_raw_dir_preprocess
+        load_data_module.RAW_DATA_DIR = original_raw_dir_config
         # Clean up temp directory and its contents
         import shutil
 
