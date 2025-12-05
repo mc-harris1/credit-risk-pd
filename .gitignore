@@ -218,3 +218,4 @@ __marimo__/
 # Data files
 accepted_2007_to_2018Q4.csv
 rejected_2007_to_2018Q4.csv
+data/interim/loans_preprocessed.parquet
