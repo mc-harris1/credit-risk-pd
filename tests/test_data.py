@@ -16,8 +16,14 @@ def test_load_raw_loans():
 
 def test_preprocess_loans():
     """Test that preprocess_loans correctly concatenates multiple data files."""
+    import src.data.preprocess as preprocess_module
+
+    # Save original RAW_DATA_DIR
+    original_raw_dir = preprocess_module.RAW_DATA_DIR
+
     # Create temporary mock data files to test concatenation
-    with tempfile.TemporaryDirectory() as temp_dir:
+    temp_dir = tempfile.mkdtemp()
+    try:
         # Create two mock CSV files that match the expected naming pattern
         accepted_file = os.path.join(temp_dir, "accepted_2007_to_2018Q4.csv")
         rejected_file = os.path.join(temp_dir, "rejected_2007_to_2018Q4.csv")
@@ -49,25 +55,25 @@ def test_preprocess_loans():
         mock_data_2.to_csv(rejected_file, index=False)
 
         # Monkey-patch RAW_DATA_DIR to point to our temp directory
-        import src.data.preprocess as preprocess_module
-
-        original_raw_dir = preprocess_module.RAW_DATA_DIR
         preprocess_module.RAW_DATA_DIR = temp_dir
 
-        try:
-            output_filename = "test_loans_preprocessed.parquet"
-            preprocess_loans(output_file=output_filename)
+        output_filename = "test_loans_preprocessed.parquet"
+        preprocess_loans(output_file=output_filename)
 
-            output_path = os.path.join(INTERIM_DATA_DIR, output_filename)
-            assert os.path.exists(output_path)
+        output_path = os.path.join(INTERIM_DATA_DIR, output_filename)
+        assert os.path.exists(output_path)
 
-            df = pd.read_parquet(output_path)
-            assert not df.empty
-            assert "default" in df.columns
-            # Verify concatenation worked: we should have data from both files
-            assert len(df) >= 2
+        df = pd.read_parquet(output_path)
+        assert not df.empty
+        assert "default" in df.columns
+        # Verify concatenation worked: we should have data from both files
+        assert len(df) >= 2
 
-            os.remove(output_path)
-        finally:
-            # Restore original RAW_DATA_DIR
-            preprocess_module.RAW_DATA_DIR = original_raw_dir
+        os.remove(output_path)
+    finally:
+        # Restore original RAW_DATA_DIR before cleaning up temp directory
+        preprocess_module.RAW_DATA_DIR = original_raw_dir
+        # Clean up temp directory and its contents
+        import shutil
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
