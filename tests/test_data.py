@@ -20,8 +20,8 @@ def test_preprocess_loans():
     import src.data.preprocess as preprocess_module
 
     # Save original RAW_DATA_DIR from both modules
-    # original_raw_dir_config = config_module.RAW_DATA_DIR
-    # original_raw_dir_preprocess = preprocess_module.RAW_DATA_DIR
+    original_raw_dir_config = config_module.RAW_DATA_DIR
+    original_raw_dir_preprocess = preprocess_module.RAW_DATA_DIR
 
     # Create temporary mock data files to test concatenation
     temp_dir = tempfile.mkdtemp()
@@ -75,8 +75,8 @@ def test_preprocess_loans():
         os.remove(output_path)
     finally:
         # Restore original RAW_DATA_DIR in all modules
-        # config_module.RAW_DATA_DIR = original_raw_dir_config
-        # preprocess_module.RAW_DATA_DIR = original_raw_dir_preprocess
+        config_module.RAW_DATA_DIR = original_raw_dir_config
+        preprocess_module.RAW_DATA_DIR = original_raw_dir_preprocess
 
         # Clean up temp directory and its contents
         import shutil
