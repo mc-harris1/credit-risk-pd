@@ -16,7 +16,7 @@ def preprocess_loans(
 ) -> None:
     dfs = []
 
-    """Basic reprocessing stub: load, lightly clean, and save interim data."""
+    """Basic preprocessing stub: load, lightly clean, and save interim data."""
     for input_file in os.listdir(RAW_DATA_DIR):  # Look in raw data directory
         # if the file is of the .csv format and matches the following pattern - _2007_to_2018Q4.csv
         # Skip test.csv and other files that don't match the production data pattern
