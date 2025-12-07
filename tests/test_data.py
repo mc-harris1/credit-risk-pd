@@ -16,6 +16,7 @@ def test_load_raw_loans():
 def test_preprocess_loans(monkeypatch):
     """Test that preprocess_loans correctly concatenates multiple data files."""
     import src.config as config_module
+    import src.data.load_data as load_data_module
     import src.data.preprocess as preprocess_module
     from src.data.preprocess import preprocess_loans
 
@@ -53,9 +54,10 @@ def test_preprocess_loans(monkeypatch):
         mock_data_1.to_csv(accepted_file, index=False)
         mock_data_2.to_csv(rejected_file, index=False)
 
-        # Use monkeypatch for safer test isolation
+        # Use monkeypatch for safer test isolation - patch all modules that use these directories
         monkeypatch.setattr(config_module, "RAW_DATA_DIR", temp_dir)
         monkeypatch.setattr(preprocess_module, "RAW_DATA_DIR", temp_dir)
+        monkeypatch.setattr(load_data_module, "RAW_DATA_DIR", temp_dir)
         monkeypatch.setattr(config_module, "INTERIM_DATA_DIR", temp_interim_dir)
         monkeypatch.setattr(preprocess_module, "INTERIM_DATA_DIR", temp_interim_dir)
 
