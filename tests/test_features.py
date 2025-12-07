@@ -62,25 +62,25 @@ def test_build_features():
         assert "default" in df.columns
 
         # Verify actual computed values
-        # loan_to_income: 5000/50000*100 = 10.0, 10000/75000*100 = 13.3333
-        assert df.loc[0, "loan_to_income"] == 10.0
-        assert abs(df.loc[1, "loan_to_income"] - 13.3333) < 0.0001
-        
-        # term_months: "36 months" → 36, "60 months" → 60
-        assert df.loc[0, "term_months"] == 36
-        assert df.loc[1, "term_months"] == 60
-        
-        # grade_numeric: "A" → 1, "B" → 2
-        assert df.loc[0, "grade_numeric"] == 1
-        assert df.loc[1, "grade_numeric"] == 2
-        
-        # sub_grade_numeric: "A1" → 11, "B2" → 22
-        assert df.loc[0, "sub_grade_numeric"] == 11
-        assert df.loc[1, "sub_grade_numeric"] == 22
-        
-        # default: "Fully Paid" → 0, "Charged Off" → 1
-        assert df.loc[0, "default"] == 0
-        assert df.loc[1, "default"] == 1
+        # loan_to_income: (loan_amnt / annual_inc) * 100, rounded to 4 decimals
+        assert df.loc[0, "loan_to_income"] == 10.0  # 5000/50000*100
+        assert df.loc[1, "loan_to_income"] == 13.3333  # 10000/75000*100, rounded to 4 decimals
+
+        # term_months: extract numeric value from term string
+        assert df.loc[0, "term_months"] == 36  # "36 months" → 36
+        assert df.loc[1, "term_months"] == 60  # "60 months" → 60
+
+        # grade_numeric: A=1, B=2, C=3, etc.
+        assert df.loc[0, "grade_numeric"] == 1  # "A" → 1
+        assert df.loc[1, "grade_numeric"] == 2  # "B" → 2
+
+        # sub_grade_numeric: grade_num*10 + sub_grade_num
+        assert df.loc[0, "sub_grade_numeric"] == 11  # "A1" → 1*10 + 1 = 11
+        assert df.loc[1, "sub_grade_numeric"] == 22  # "B2" → 2*10 + 2 = 22
+
+        # default: 1 for Charged Off/Default/Late, 0 for Fully Paid
+        assert df.loc[0, "default"] == 0  # "Fully Paid" → 0
+        assert df.loc[1, "default"] == 1  # "Charged Off" → 1
 
     finally:
         # Restore original directory paths in all modules
