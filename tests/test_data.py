@@ -2,13 +2,13 @@ import os
 import tempfile
 
 import pandas as pd
-from src.data.load_data import load_raw_loans
-from src.data.preprocess import preprocess_loans
 
 string = "test.csv"
 
 
 def test_load_raw_loans():
+    from src.data.load_data import load_raw_loans
+
     df = load_raw_loans(string)
     assert not df.empty
 
@@ -17,6 +17,7 @@ def test_preprocess_loans():
     """Test that preprocess_loans correctly concatenates multiple data files."""
     import src.config as config_module
     import src.data.preprocess as preprocess_module
+    from src.data.preprocess import preprocess_loans
 
     # Save original directory paths from both modules
     original_raw_dir_config = config_module.RAW_DATA_DIR
