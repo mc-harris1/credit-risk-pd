@@ -5,16 +5,10 @@ import tempfile
 import pandas as pd
 
 
-def test_build_features():
+def test_build_features(monkeypatch):
     """Test that the build_features function is called, asserts the engineered features columns, and the default target exists."""
     import src.config as config_module
     import src.features.build_features as build_features_module
-
-    # Save original directory paths from both modules
-    original_processed_dir_config = config_module.PROCESSED_DATA_DIR
-    original_processed_dir_features = build_features_module.PROCESSED_DATA_DIR
-    original_interim_dir_config = config_module.INTERIM_DATA_DIR
-    original_interim_dir_features = build_features_module.INTERIM_DATA_DIR
 
     # Create temporary mock data file to test feature engineering
     temp_dir = tempfile.mkdtemp()
@@ -36,11 +30,11 @@ def test_build_features():
 
         mock_data.to_parquet(features_file, index=False)
 
-        # Monkey-patch directories in the modules to use temp_dir
-        config_module.PROCESSED_DATA_DIR = temp_dir
-        build_features_module.PROCESSED_DATA_DIR = temp_dir
-        config_module.INTERIM_DATA_DIR = temp_dir
-        build_features_module.INTERIM_DATA_DIR = temp_dir
+        # Use monkeypatch for safer test isolation
+        monkeypatch.setattr(config_module, "PROCESSED_DATA_DIR", temp_dir)
+        monkeypatch.setattr(build_features_module, "PROCESSED_DATA_DIR", temp_dir)
+        monkeypatch.setattr(config_module, "INTERIM_DATA_DIR", temp_dir)
+        monkeypatch.setattr(build_features_module, "INTERIM_DATA_DIR", temp_dir)
 
         # Build features
         output_filename = "test_loans_features.parquet"
@@ -51,15 +45,15 @@ def test_build_features():
 
         # Verify output file exists and has expected columns
         output_path = os.path.join(temp_dir, output_filename)
-        assert os.path.exists(output_path)
+        assert os.path.exists(output_path), f"Output file not found at {output_path}"
 
         df = pd.read_parquet(output_path)
-        assert not df.empty
-        assert "loan_to_income" in df.columns
-        assert "term_months" in df.columns
-        assert "grade_numeric" in df.columns
-        assert "sub_grade_numeric" in df.columns
-        assert "default" in df.columns
+        assert not df.empty, "DataFrame is empty"
+        assert "loan_to_income" in df.columns, "Missing 'loan_to_income' column"
+        assert "term_months" in df.columns, "Missing 'term_months' column"
+        assert "grade_numeric" in df.columns, "Missing 'grade_numeric' column"
+        assert "sub_grade_numeric" in df.columns, "Missing 'sub_grade_numeric' column"
+        assert "default" in df.columns, "Missing 'default' column"
 
         # Verify actual computed values
         # loan_to_income: (loan_amnt / annual_inc) * 100, rounded to 4 decimals
@@ -83,11 +77,5 @@ def test_build_features():
         assert df.loc[1, "default"] == 1  # "Charged Off" → 1
 
     finally:
-        # Restore original directory paths in all modules
-        config_module.PROCESSED_DATA_DIR = original_processed_dir_config
-        build_features_module.PROCESSED_DATA_DIR = original_processed_dir_features
-        config_module.INTERIM_DATA_DIR = original_interim_dir_config
-        build_features_module.INTERIM_DATA_DIR = original_interim_dir_features
-
         # Clean up temp directory and its contents
         shutil.rmtree(temp_dir, ignore_errors=True)
