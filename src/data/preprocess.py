@@ -14,9 +14,8 @@ DEFAULT_OUTPUT_FILE = "loans_preprocessed.parquet"
 def preprocess_loans(
     output_file: str = DEFAULT_OUTPUT_FILE,
 ) -> None:
-    dfs = []
-
     """Basic preprocessing stub: load, lightly clean, and save interim data."""
+    dfs = []
     for input_file in os.listdir(RAW_DATA_DIR):  # Look in raw data directory
         # if the file is of the .csv format and matches the following pattern - _2007_to_2018Q4.csv
         # Skip test.csv and other files that don't match the production data pattern
@@ -48,7 +47,11 @@ def preprocess_loans(
         "term",
         "loan_status",
         "dti",
-        # add grade, sub_grade, emp_length, home_ownership, etc. as needed
+        "grade",
+        "sub_grade",
+        "emp_length",
+        "home_ownership",
+        # add other attributes as needed
     ]
     existing_required = [c for c in required_cols if c in df.columns]
     df = df[existing_required].copy()
