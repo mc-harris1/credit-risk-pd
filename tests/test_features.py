@@ -3,13 +3,18 @@ import shutil
 import tempfile
 
 import pandas as pd
-from src.features.build_features import build_features
 
 
 def test_build_features():
     """Test that the build_features function is called, asserts the engineered features columns, and the default target exists."""
     import src.config as config_module
     import src.features.build_features as build_features_module
+
+    # Save original directory paths from both modules
+    original_processed_dir_config = config_module.PROCESSED_DATA_DIR
+    original_processed_dir_features = build_features_module.PROCESSED_DATA_DIR
+    original_interim_dir_config = config_module.INTERIM_DATA_DIR
+    original_interim_dir_features = build_features_module.INTERIM_DATA_DIR
 
     # Create temporary mock data file to test feature engineering
     temp_dir = tempfile.mkdtemp()
@@ -39,7 +44,7 @@ def test_build_features():
 
         # Build features
         output_filename = "test_loans_features.parquet"
-        build_features(
+        build_features_module.build_features(
             input_file="loans_preprocessed.parquet",
             output_file=output_filename,
         )
@@ -78,5 +83,11 @@ def test_build_features():
         assert df.loc[1, "default"] == 1  # "Charged Off" → 1
 
     finally:
+        # Restore original directory paths in all modules
+        config_module.PROCESSED_DATA_DIR = original_processed_dir_config
+        build_features_module.PROCESSED_DATA_DIR = original_processed_dir_features
+        config_module.INTERIM_DATA_DIR = original_interim_dir_config
+        build_features_module.INTERIM_DATA_DIR = original_interim_dir_features
+
         # Clean up temp directory and its contents
         shutil.rmtree(temp_dir, ignore_errors=True)

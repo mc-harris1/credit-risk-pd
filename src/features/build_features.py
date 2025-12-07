@@ -23,23 +23,25 @@ def build_features(
 
     # Engineer simple features
     if "loan_amnt" in df and "annual_inc" in df:
-        df["loan_to_income"] = ((df["loan_amnt"] / df["annual_inc"]) * 100).round(4)
+        # Avoid division by zero or near-zero annual_inc
+        safe_annual_inc = df["annual_inc"].replace(0, pd.NA)
+        df["loan_to_income"] = ((df["loan_amnt"] / safe_annual_inc) * 100).round(4)
 
     if "term" in df:
-        df["term_months"] = df["term"].str.extract(r"(\d+)").astype(int)
+        df["term_months"] = df["term"].str.extract(r"(\d+)")[0].astype(int)
 
     if "grade" in df:
         df["grade_numeric"] = (
             df["grade"]
-            .str.extract(r"([A-G])")
+            .str.extract(r"([A-G])")[0]
             .replace({"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7})
             .astype(int)
         )
 
     if "sub_grade" in df:
-        df["sub_grade_numeric"] = df["sub_grade"].str.extract(r"([A-G])").replace(
+        df["sub_grade_numeric"] = df["sub_grade"].str.extract(r"([A-G])")[0].replace(
             {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7}
-        ).astype(int) * 10 + df["sub_grade"].str.extract(r"(\d+)").astype(int)
+        ).astype(int) * 10 + df["sub_grade"].str.extract(r"(\d+)")[0].astype(int)
 
     # Ensure target variable is binary: 1 for default, 0 for non-default
     if "loan_status" in df:
