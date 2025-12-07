@@ -2,7 +2,6 @@ import os
 import tempfile
 
 import pandas as pd
-from src.config import INTERIM_DATA_DIR
 from src.data.load_data import load_raw_loans
 from src.data.preprocess import preprocess_loans
 
@@ -19,12 +18,15 @@ def test_preprocess_loans():
     import src.config as config_module
     import src.data.preprocess as preprocess_module
 
-    # Save original RAW_DATA_DIR from both modules
+    # Save original directory paths from both modules
     original_raw_dir_config = config_module.RAW_DATA_DIR
     original_raw_dir_preprocess = preprocess_module.RAW_DATA_DIR
+    original_interim_dir_config = config_module.INTERIM_DATA_DIR
+    original_interim_dir_preprocess = preprocess_module.INTERIM_DATA_DIR
 
-    # Create temporary mock data files to test concatenation
+    # Create temporary directories for test isolation
     temp_dir = tempfile.mkdtemp()
+    temp_interim_dir = tempfile.mkdtemp()
     try:
         # Create two mock CSV files that match the expected naming pattern
         accepted_file = os.path.join(temp_dir, "accepted_2007_to_2018Q4.csv")
@@ -56,14 +58,16 @@ def test_preprocess_loans():
         mock_data_1.to_csv(accepted_file, index=False)
         mock_data_2.to_csv(rejected_file, index=False)
 
-        # Monkey-patch RAW_DATA_DIR in all modules
+        # Monkey-patch directories in all modules for complete test isolation
         config_module.RAW_DATA_DIR = temp_dir
         preprocess_module.RAW_DATA_DIR = temp_dir
+        config_module.INTERIM_DATA_DIR = temp_interim_dir
+        preprocess_module.INTERIM_DATA_DIR = temp_interim_dir
 
         output_filename = "test_loans_preprocessed.parquet"
         preprocess_loans(output_file=output_filename)
 
-        output_path = os.path.join(INTERIM_DATA_DIR, output_filename)
+        output_path = os.path.join(temp_interim_dir, output_filename)
         assert os.path.exists(output_path)
 
         df = pd.read_parquet(output_path)
@@ -72,13 +76,15 @@ def test_preprocess_loans():
         # Verify concatenation worked: we should have data from both files
         assert len(df) >= 2
 
-        os.remove(output_path)
     finally:
-        # Restore original RAW_DATA_DIR in all modules
+        # Restore original directory paths in all modules
         config_module.RAW_DATA_DIR = original_raw_dir_config
         preprocess_module.RAW_DATA_DIR = original_raw_dir_preprocess
+        config_module.INTERIM_DATA_DIR = original_interim_dir_config
+        preprocess_module.INTERIM_DATA_DIR = original_interim_dir_preprocess
 
-        # Clean up temp directory and its contents
+        # Clean up temp directories and their contents
         import shutil
 
         shutil.rmtree(temp_dir, ignore_errors=True)
+        shutil.rmtree(temp_interim_dir, ignore_errors=True)
