@@ -23,7 +23,9 @@ def build_features(
 
     # Engineer simple features
     if "loan_amnt" in df and "annual_inc" in df:
-        df["loan_to_income"] = ((df["loan_amnt"] / df["annual_inc"]) * 100).round(4)
+        # Avoid division by zero or near-zero annual_inc
+        safe_annual_inc = df["annual_inc"].replace(0, pd.NA)
+        df["loan_to_income"] = ((df["loan_amnt"] / safe_annual_inc) * 100).round(4)
 
     if "term" in df:
         df["term_months"] = df["term"].str.extract(r"(\d+)").astype(int)
