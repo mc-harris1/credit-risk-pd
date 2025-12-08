@@ -31,8 +31,8 @@ RUN uv sync --no-dev --frozen || uv sync --no-dev
 COPY src ./src
 COPY streamlit_app ./streamlit_app
 
-# Only copy model metadata (avoid large model artifact files in CI/builds)
-COPY models/metadata ./models/metadata
+# Copy model directory structure (metadata will be populated at runtime/training)
+COPY models ./models
 
 # Copy only processed/interim data needed at runtime; do NOT copy raw CSVs
 COPY data/interim ./data/interim
