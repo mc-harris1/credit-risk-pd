@@ -1,6 +1,7 @@
 # Exclude raw datasets and large artifacts from build context
 data/raw/
-models/artifacts/
+models/artifacts/*
+!models/artifacts/.gitkeep
 
 # Python/IDE files
 __pycache__/
