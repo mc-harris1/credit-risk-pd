@@ -32,9 +32,10 @@ COPY src ./src
 COPY streamlit_app ./streamlit_app
 
 # Copy model directory structure (metadata will be populated at runtime/training)
-COPY models ./models
+COPY models/metadata ./models/metadata
+COPY models/artifacts/.gitkeep ./models/artifacts/.gitkeep
 
-# Copy only processed/interim data needed at runtime; do NOT copy raw CSVs
+# Copy data directory structure (.gitkeep files ensure dirs exist in CI)
 COPY data/interim ./data/interim
 COPY data/processed ./data/processed
 
