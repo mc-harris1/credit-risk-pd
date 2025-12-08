@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 import pytest
-from src.config import MODELS_DIR, PROCESSED_DATA_DIR
+from src.config import METADATA_DIR, MODELS_DIR, PROCESSED_DATA_DIR
 
 
 @pytest.fixture
@@ -26,6 +26,7 @@ def sample_feature_data():
         "purpose": np.random.choice(
             ["debt_consolidation", "credit_card", "home_improvement"], n_samples
         ),
+        "loan_status": np.random.choice(["Fully Paid", "Charged Off", "Current"], n_samples),
         "default": np.random.choice([0, 1], n_samples, p=[0.8, 0.2]),
     }
 
@@ -55,3 +56,15 @@ def test_train_model(sample_feature_data):
     # Check that at least one model file was created
     model_files = [f for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")]
     assert len(model_files) > 0, "No model file was created"
+
+    # Cleanup: remove all generated model artifacts and metadata
+    for file in os.listdir(MODELS_DIR):
+        file_path = os.path.join(MODELS_DIR, file)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+
+    if os.path.exists(METADATA_DIR):
+        for file in os.listdir(METADATA_DIR):
+            file_path = os.path.join(METADATA_DIR, file)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
