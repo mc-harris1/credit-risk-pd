@@ -3,14 +3,41 @@ import tempfile
 
 import pandas as pd
 
-string = "test.csv"
-
 
 def test_load_raw_loans():
-    from src.data.load_data import load_raw_loans
+    """Test that load_raw_loans correctly loads a CSV file."""
+    # create a more robust test which creates a temporary CSV file, loads it, and checks contents
+    temp_dir = tempfile.mkdtemp()
 
-    df = load_raw_loans(string)
-    assert not df.empty
+    try:
+        accepted_file = os.path.join(temp_dir, "test.csv")
+        # Create a mock CSV file
+        mock_data = pd.DataFrame(
+            {
+                "loan_amnt": 10000,
+                "annual_inc": 75000,
+                "int_rate": "12.0%",
+                "term": "36 months",
+                "loan_status": "Fully Paid",
+                "dti": 8.0,
+            },
+            index=[0],
+        )
+        mock_data.to_csv(accepted_file, index=False)
+
+        # Now test the load_raw_loans function
+        from src.data.load_data import load_raw_loans
+
+        df = load_raw_loans(filename=accepted_file)
+        assert not df.empty, "DataFrame is empty"
+        assert list(df.columns) == list(mock_data.columns), (
+            f"Columns do not match: {df.columns} vs {mock_data.columns}"
+        )
+        assert len(df) == len(mock_data), f"Row counts do not match: {len(df)} vs {len(mock_data)}"
+    finally:
+        import shutil
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def test_preprocess_loans(monkeypatch):
