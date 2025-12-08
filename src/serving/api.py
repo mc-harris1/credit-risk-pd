@@ -1,3 +1,6 @@
+# Copyright (c) 2025 Mark Harris
+# Licensed under the MIT License. See LICENSE file in the project root.
+
 import os
 from typing import Literal
 
@@ -15,23 +18,6 @@ MODEL_FILE = "pd_model_xgb.pkl"
 app = FastAPI(title="Credit Risk PD API", version="0.1.0")
 
 _model = None
-
-
-# class LoanApplication(BaseModel):
-#     # Add whatever fields your feature set expects.
-#     # These should line up with columns in your training data.
-#     loan_amnt: float
-#     annual_inc: float
-#     int_rate: float | None = None
-#     term: str | None = None
-#     loan_status: str | None = None
-#     dti: float | None = None
-#     grade: str | None = None
-#     sub_grade: str | None = None
-#     emp_length: str | None = None
-#     home_ownership: str | None = None
-#     issue_d: str | None = None  # e.g.,
-#     # You can extend this model as needed.
 
 
 class ScoreResponse(BaseModel):

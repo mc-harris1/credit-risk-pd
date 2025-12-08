@@ -1,16 +1,15 @@
-import os
-import sys
-from datetime import datetime
+# Copyright (c) 2025 Mark Harris
+# Licensed under the MIT License. See LICENSE file in the project root.
 
-# Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+import os
+from datetime import datetime
 
 import joblib
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import FunctionTransformer, Pipeline
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from xgboost import XGBClassifier
 
@@ -32,11 +31,12 @@ def load_feature_data() -> tuple[pd.DataFrame, pd.Series]:
 
 def train_model() -> None:
     X, y = load_feature_data()
+    X = add_domain_features(X)
+
+    print(X.head())
 
     cat_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
     num_cols = X.select_dtypes(include=["number", "bool"]).columns.tolist()
-
-    feature_engineer = FunctionTransformer(add_domain_features)
 
     preprocessor = ColumnTransformer(
         transformers=[
@@ -60,7 +60,6 @@ def train_model() -> None:
 
     pipeline = Pipeline(
         steps=[
-            ("feature_engineering", feature_engineer),
             ("preprocess", preprocessor),
             ("model", clf),
         ]
@@ -87,9 +86,11 @@ def train_model() -> None:
     METADATA_FILE = f"pd_model_xgb_{timestamp}.meta"
     os.makedirs(METADATA_DIR, exist_ok=True)
     metadata_path = os.path.join(METADATA_DIR, METADATA_FILE)
-    # if directory isn't empty, delete old metadata files
+
+    # if files in metadata_path do not equal METADATA_FILE pattern, delete
     for f in os.listdir(METADATA_DIR):
-        os.remove(os.path.join(METADATA_DIR, f))
+        if f != METADATA_FILE:
+            os.remove(os.path.join(METADATA_DIR, f))
 
     joblib.dump(
         {

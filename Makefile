@@ -17,6 +17,7 @@ help:
 	@echo	"  make train       - Run model training"
 	@echo	"  make preprocess  - Run data preprocessing"
 	@echo	"  make features    - Run feature engineering"
+	@echo	"  make full-pipeline - Run full ML pipeline (preprocess, features, train)"
 	@echo	"  make docker-build- Build Docker image"
 	@echo	"  make docker-run  - Run Docker container"
 
@@ -53,6 +54,9 @@ features:
 .PHONY: train
 train:
 	uv run python -m src.models.train
+
+.PHONEY: full-pipeline
+full-pipeline: preprocess features train
 
 # ---- App servers ----
 

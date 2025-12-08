@@ -1,3 +1,6 @@
+# Copyright (c) 2025 Mark Harris
+# Licensed under the MIT License. See LICENSE file in the project root.
+
 from pydantic import BaseModel, Field
 
 
