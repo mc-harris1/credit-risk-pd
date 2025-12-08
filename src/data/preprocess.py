@@ -51,17 +51,18 @@ def preprocess_loans(
         "sub_grade",
         "emp_length",
         "home_ownership",
+        "issue_d",
         # add other attributes as needed
     ]
     existing_required = [c for c in required_cols if c in df.columns]
     df = df[existing_required].copy()
 
     # 4. Drop rows missing critical fields
-    critical_cols = ["loan_amnt", "annual_inc", "int_rate", "term", "loan_status"]
+    critical_cols = ["loan_amnt", "annual_inc", "int_rate", "term", "loan_status", "issue_d"]
     df = df.dropna(subset=[c for c in critical_cols if c in df.columns])
 
     # 5. Clean numeric fields & drop impossible values
-    # Convert interest_rate from "13.56%" → 13.56 if needed
+    # Convert interest_rate from "13.56%" → 13.56
     if df["int_rate"].dtype == object:
         df["int_rate"] = df["int_rate"].astype(str).str.rstrip("%").astype(float)
 

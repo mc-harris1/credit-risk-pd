@@ -1,3 +1,10 @@
+import os
+import sys
+from datetime import datetime
+
+# Add project root to path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
 import joblib
 import pandas as pd
 from sklearn.compose import ColumnTransformer
@@ -7,15 +14,15 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from xgboost import XGBClassifier
 
-from src.config import MODELS_DIR, PROCESSED_DATA_DIR, RANDOM_STATE
+from src.config import METADATA_DIR, MODELS_DIR, PROCESSED_DATA_DIR, RANDOM_STATE
 
 FEATURES_FILE = "loans_features.parquet"
-MODEL_FILE = "pd_model_xgb.pkl"
 
 
 def load_feature_data() -> tuple[pd.DataFrame, pd.Series]:
-    path = PROCESSED_DATA_DIR / FEATURES_FILE
-    df = pd.read_parquet(path)
+    input_path = os.path.join(PROCESSED_DATA_DIR, FEATURES_FILE)
+    df = pd.read_parquet(input_path)
+    df.drop(columns=["loan_status"], inplace=True)
     y = df["default"]
     X = df.drop(columns=["default"])
     return X, y
@@ -35,6 +42,7 @@ def train_model() -> None:
     )
 
     clf = XGBClassifier(
+        objective="binary:logistic",
         n_estimators=300,
         max_depth=5,
         learning_rate=0.05,
@@ -66,9 +74,25 @@ def train_model() -> None:
     auc = roc_auc_score(y_test, y_proba)
     print(f"Validation ROC-AUC: {auc:.4f}")
 
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    model_path = MODELS_DIR / MODEL_FILE
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    timestamp_0 = datetime.now().strftime("%Y%m%d_%H%M%S")
+    MODEL_FILE = f"pd_model_xgb_{timestamp_0}.pkl"
+    model_path = os.path.join(MODELS_DIR, MODEL_FILE)
     joblib.dump(pipeline, model_path)
+
+    timestamp_1 = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    METADATA_FILE = f"pd_model_xgb_{timestamp_0}.meta"
+    metadata_path = os.path.join(METADATA_DIR, METADATA_FILE)
+    joblib.dump(
+        {
+            "model_file": MODEL_FILE,
+            "trained_at": timestamp_1,
+            "roc_auc": auc,
+            "model_type": "XGBClassifier",
+            "features": X.columns.tolist(),
+        },
+        metadata_path,
+    )
     print(f"Saved model to {model_path}")
 
 
