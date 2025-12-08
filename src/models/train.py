@@ -85,6 +85,7 @@ def train_model() -> None:
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     METADATA_FILE = f"pd_model_xgb_{timestamp}.meta"
+    os.makedirs(METADATA_DIR, exist_ok=True)
     metadata_path = os.path.join(METADATA_DIR, METADATA_FILE)
     # if directory isn't empty, delete old metadata files
     for f in os.listdir(METADATA_DIR):
