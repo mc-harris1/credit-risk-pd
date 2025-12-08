@@ -10,13 +10,15 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import FunctionTransformer, Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from xgboost import XGBClassifier
 
 from src.config import METADATA_DIR, MODELS_DIR, PROCESSED_DATA_DIR, RANDOM_STATE
+from src.features.transforms import add_domain_features
 
 FEATURES_FILE = "loans_features.parquet"
+MODEL_FILE = "pd_model_xgb.pkl"
 
 
 def load_feature_data() -> tuple[pd.DataFrame, pd.Series]:
@@ -33,6 +35,8 @@ def train_model() -> None:
 
     cat_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
     num_cols = X.select_dtypes(include=["number", "bool"]).columns.tolist()
+
+    feature_engineer = FunctionTransformer(add_domain_features)
 
     preprocessor = ColumnTransformer(
         transformers=[
@@ -56,6 +60,7 @@ def train_model() -> None:
 
     pipeline = Pipeline(
         steps=[
+            ("feature_engineering", feature_engineer),
             ("preprocess", preprocessor),
             ("model", clf),
         ]
@@ -75,18 +80,21 @@ def train_model() -> None:
     print(f"Validation ROC-AUC: {auc:.4f}")
 
     os.makedirs(MODELS_DIR, exist_ok=True)
-    timestamp_0 = datetime.now().strftime("%Y%m%d_%H%M%S")
-    MODEL_FILE = f"pd_model_xgb_{timestamp_0}.pkl"
     model_path = os.path.join(MODELS_DIR, MODEL_FILE)
     joblib.dump(pipeline, model_path)
 
-    timestamp_1 = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    METADATA_FILE = f"pd_model_xgb_{timestamp_0}.meta"
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    METADATA_FILE = f"pd_model_xgb_{timestamp}.meta"
+    os.makedirs(METADATA_DIR, exist_ok=True)
     metadata_path = os.path.join(METADATA_DIR, METADATA_FILE)
+    # if directory isn't empty, delete old metadata files
+    for f in os.listdir(METADATA_DIR):
+        os.remove(os.path.join(METADATA_DIR, f))
+
     joblib.dump(
         {
             "model_file": MODEL_FILE,
-            "trained_at": timestamp_1,
+            "trained_at": timestamp,
             "roc_auc": auc,
             "model_type": "XGBClassifier",
             "features": X.columns.tolist(),
