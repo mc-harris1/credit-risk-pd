@@ -1,9 +1,9 @@
+# Copyright (c) 2025 Mark Harris
+# Licensed under the MIT License. See LICENSE file in the project root.
+
 import os
-import sys
 
 import pandas as pd
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from src.config import INTERIM_DATA_DIR, RAW_DATA_DIR
 from src.data.load_data import load_raw_loans

@@ -355,4 +355,6 @@ uv run uvicorn src.serving.api:app --reload --host 0.0.0.0 --port 8000
 
 ## 📄 License
 
-No license.
+MIT License - Copyright (c) 2025 Mark Harris
+
+See [LICENSE](LICENSE) file for details.

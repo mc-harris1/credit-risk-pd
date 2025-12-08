@@ -1,3 +1,6 @@
+# Copyright (c) 2025 Mark Harris
+# Licensed under the MIT License. See LICENSE file in the project root.
+
 """Feature transformation functions shared across training and serving."""
 
 import pandas as pd
@@ -39,5 +42,10 @@ def add_domain_features(df: pd.DataFrame) -> pd.DataFrame:
         ).infer_objects(copy=False).astype(int) * 10 + df["sub_grade"].str.extract(r"(\d+)")[
             0
         ].astype(int)
+
+    # Create binary default target variable from loan_status
+    if "loan_status" in df.columns:
+        default_statuses = ["Charged Off", "Default", "Late (31-120 days)", "Late (16-30 days)"]
+        df["default"] = df["loan_status"].isin(default_statuses).astype(int)
 
     return df

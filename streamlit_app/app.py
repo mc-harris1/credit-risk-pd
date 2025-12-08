@@ -1,16 +1,13 @@
-import sys
-from pathlib import Path
+# Copyright (c) 2025 Mark Harris
+# Licensed under the MIT License. See LICENSE file in the project root.
+
+import os
 
 import requests
 import streamlit as st
-
-# Add project root to Python path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
 from src.serving.schemas import LoanApplication  # noqa: E402
 
-API_URL = "http://127.0.0.1:8000/score"
+API_URL = os.getenv("PD_API_URL", "http://127.0.0.1:8000/score")
 
 
 def main() -> None:
