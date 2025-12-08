@@ -1,10 +1,13 @@
+import os
 from typing import Literal
 
 import joblib
+import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from src.config import MODELS_DIR
+from src.features.transforms import add_domain_features  # noqa: F401 - needed for unpickling
 
 MODEL_FILE = "pd_model_xgb.pkl"
 
@@ -18,10 +21,15 @@ class LoanApplication(BaseModel):
     # These should line up with columns in your training data.
     loan_amnt: float
     annual_inc: float
-    dti: float | None = None
+    int_rate: float | None = None
     term: str | None = None
-    home_ownership: str | None = None
+    loan_status: str | None = None
+    dti: float | None = None
     grade: str | None = None
+    sub_grade: str | None = None
+    emp_length: str | None = None
+    home_ownership: str | None = None
+    issue_d: str | None = None  # e.g.,
     # You can extend this model as needed.
 
 
@@ -35,8 +43,8 @@ class ScoreResponse(BaseModel):
 def load_model():
     global _model
     if _model is None:
-        model_path = MODELS_DIR / MODEL_FILE
-        if not model_path.exists():
+        model_path = os.path.join(MODELS_DIR, MODEL_FILE)
+        if not os.path.exists(model_path):
             msg = f"Model file not found at {model_path}. Train the model first."
             raise RuntimeError(msg)
         _model = joblib.load(model_path)
@@ -60,11 +68,11 @@ def health() -> dict:
 def score(app_data: LoanApplication) -> ScoreResponse:
     model = load_model()
 
-    # Convert incoming payload to a single-row dict for the model.
-    X_row = {k: v for k, v in app_data.model_dump().items()}
+    # Convert incoming payload to a DataFrame for the model.
+    X_row = pd.DataFrame([app_data.model_dump()])
 
     try:
-        proba = model.predict_proba([X_row])[0][1]
+        proba = model.predict_proba(X_row)[0][1]
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"Prediction error: {exc}") from exc
 
