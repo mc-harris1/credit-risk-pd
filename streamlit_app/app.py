@@ -1,7 +1,16 @@
+import sys
+from pathlib import Path
+
 import requests
 import streamlit as st
 
-API_URL = "https://127.0.0.1:8000/score"
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from src.serving.schemas import LoanApplication  # noqa: E402
+
+API_URL = "http://127.0.0.1:8000/score"
 
 
 def main() -> None:
@@ -17,23 +26,28 @@ def main() -> None:
     grade = st.sidebar.selectbox("Grade", ["A", "B", "C", "D", "E", "F", "G"])
 
     if st.button("Score application"):
-        payload = {
-            "loan_amnt": loan_amnt,
-            "annual_inc": annual_inc,
-            "dti": dti,
-            "term": term,
-            "home_ownership": home_ownership,
-            "grade": grade,
-        }
+        app_data = LoanApplication(
+            loan_amnt=loan_amnt,
+            annual_inc=annual_inc,
+            dti=dti,
+            term=term,
+            home_ownership=home_ownership,
+            grade=grade,
+        )
+        payload = app_data.model_dump()
+
         try:
             resp = requests.post(API_URL, json=payload, timeout=10)
             resp.raise_for_status()
             data = resp.json()
-            st.subheader("Result")
-            st.metric("Probability of Default", f"{data['prob_default']:.2%}")
-            st.write(f"Risk band: **{data['risk_band']}**")
+
         except Exception as exc:  # noqa: BLE001
             st.error(f"Error calling API: {exc}")
+            return
+
+        st.subheader("Result")
+        st.metric("Probability of Default", f"{data['prob_default']:.2%}")
+        st.write(f"Risk band: **{data['risk_band']}**")
 
 
 if __name__ == "__main__":

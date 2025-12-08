@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from src.config import MODELS_DIR
 from src.features.transforms import add_domain_features  # noqa: F401 - needed for unpickling
+from src.serving.schemas import LoanApplication
 
 MODEL_FILE = "pd_model_xgb.pkl"
 
@@ -16,21 +17,21 @@ app = FastAPI(title="Credit Risk PD API", version="0.1.0")
 _model = None
 
 
-class LoanApplication(BaseModel):
-    # Add whatever fields your feature set expects.
-    # These should line up with columns in your training data.
-    loan_amnt: float
-    annual_inc: float
-    int_rate: float | None = None
-    term: str | None = None
-    loan_status: str | None = None
-    dti: float | None = None
-    grade: str | None = None
-    sub_grade: str | None = None
-    emp_length: str | None = None
-    home_ownership: str | None = None
-    issue_d: str | None = None  # e.g.,
-    # You can extend this model as needed.
+# class LoanApplication(BaseModel):
+#     # Add whatever fields your feature set expects.
+#     # These should line up with columns in your training data.
+#     loan_amnt: float
+#     annual_inc: float
+#     int_rate: float | None = None
+#     term: str | None = None
+#     loan_status: str | None = None
+#     dti: float | None = None
+#     grade: str | None = None
+#     sub_grade: str | None = None
+#     emp_length: str | None = None
+#     home_ownership: str | None = None
+#     issue_d: str | None = None  # e.g.,
+#     # You can extend this model as needed.
 
 
 class ScoreResponse(BaseModel):
@@ -66,17 +67,19 @@ def health() -> dict:
 
 @app.post("/score", response_model=ScoreResponse)
 def score(app_data: LoanApplication) -> ScoreResponse:
-    model = load_model()
-
-    # Convert incoming payload to a DataFrame for the model.
-    X_row = pd.DataFrame([app_data.model_dump()])
-
     try:
+        model = load_model()
+
+        # Convert incoming payload to a DataFrame for the model.
+        X_row = pd.DataFrame([app_data.model_dump()])
+
         proba = model.predict_proba(X_row)[0][1]
+        prob_default = float(proba)
+        band = _risk_band(prob_default)
+
+        return ScoreResponse(prob_default=prob_default, risk_band=band, top_factors=None)
     except Exception as exc:  # noqa: BLE001
+        import traceback
+
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Prediction error: {exc}") from exc
-
-    prob_default = float(proba)
-    band = _risk_band(prob_default)
-
-    return ScoreResponse(prob_default=prob_default, risk_band=band, top_factors=None)
