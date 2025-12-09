@@ -21,6 +21,7 @@ WORKDIR /app
 
 # Copy project metadata separately to maximize Docker build caching
 COPY pyproject.toml ./
+COPY README.md ./
 # If you have a uv.lock, uncomment this line:
 # COPY uv.lock ./
 
@@ -37,8 +38,6 @@ COPY models ./models
 # Copy data directory structure (.gitkeep files ensure dirs exist in CI)
 COPY data/interim ./data/interim
 COPY data/processed ./data/processed
-
-COPY README.md .
 
 EXPOSE 8000
 

@@ -21,14 +21,9 @@ jobs:
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Install dependencies (all groups)
+      - name: Install dependencies and package
         run: |
           uv sync --all-groups
-
-      - name: Install package into uv environment (editable)
-        run: |
-          # Install the project into the uv-managed environment so `uv run` sees it
-          uv pip install -e .
 
       - name: Run ruff lint
         run: |
@@ -41,12 +36,7 @@ jobs:
           echo "--- sys.path (first 10 entries) ---"
           uv run python -c "import sys; import json; print(json.dumps(sys.path[:10]))" || python -c "import sys, json; print(json.dumps(sys.path[:10]))"
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Run tests with coverage
-        env:
-          PYTHONPATH: "."
         run: |
           uv run pytest --cov=src --cov-report=xml --cov-report=html
 
@@ -61,6 +51,34 @@ jobs:
         with:
           name: coverage-html
           path: htmlcov/
+
+      # --- NEW: model evaluation ---
+      - name: Generate synthetic data for evaluation
+        run: |
+          uv run python tests/generate_synthetic_data.py
+
+      - name: Train model on synthetic data
+        run: |
+          uv run python -m src.models.train
+
+      - name: Run model evaluation
+        run: |
+          uv run python -m src.models.evaluate
+
+      - name: Upload evaluation metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-metrics
+          path: models/metadata/evaluation_metrics.json
+
+      - name: Upload evaluation plots
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-plots
+          path: |
+            models/metadata/roc_curve.png
+            models/metadata/pr_curve.png
+            models/metadata/calibration_curve.png
 
   docker-build:
     runs-on: ubuntu-latest

@@ -12,12 +12,14 @@ help:
 	@echo	"  make lint        - Run ruff lint"
 	@echo	"  make fmt         - Run ruff formatter"
 	@echo	"  make test        - Run pytest"
+	@echo	"  make pre-commit  - Run all pre-commit checks"
 	@echo	"  make api         - Run FastAPI app with uvicorn"
 	@echo	"  make streamlit   - Run Streamlit demo app"
 	@echo	"  make train       - Run model training"
 	@echo	"  make preprocess  - Run data preprocessing"
 	@echo	"  make features    - Run feature engineering"
-	@echo	"  make full-pipeline - Run full ML pipeline (preprocess, features, train)"
+	@echo	"  make evaluate    - Run model evaluation"
+	@echo	"  make full-pipeline - Run full ML pipeline (preprocess, features, train, evaluate)"
 	@echo	"  make docker-build- Build Docker image"
 	@echo	"  make docker-run  - Run Docker container"
 
@@ -41,6 +43,10 @@ fmt:
 test:
 	uv run pytest -q
 
+.PHONY: pre-commit
+pre-commit:
+	uvx pre-commit run --all-files
+
 # ---- Pipeline steps ----
 
 .PHONY: preprocess
@@ -55,8 +61,12 @@ features:
 train:
 	uv run python -m src.models.train
 
+.PHONY: evaluate
+evaluate:
+	uv run python -m src.models.evaluate
+
 .PHONEY: full-pipeline
-full-pipeline: preprocess features train
+full-pipeline: preprocess features train evaluate
 
 # ---- App servers ----
 
