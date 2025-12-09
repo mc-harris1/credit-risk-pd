@@ -41,9 +41,6 @@ jobs:
           echo "--- sys.path (first 10 entries) ---"
           uv run python -c "import sys; import json; print(json.dumps(sys.path[:10]))" || python -c "import sys, json; print(json.dumps(sys.path[:10]))"
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Run tests with coverage
         run: |
           uv run pytest --cov=src --cov-report=xml --cov-report=html
