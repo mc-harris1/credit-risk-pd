@@ -75,6 +75,34 @@ def time_based_split(
     return X_train, X_test, y_train, y_test
 
 
+def load_best_params(default_params: dict) -> dict:
+    """
+    Attempt to load tuned hyperparameters from best_params.json.
+    If unavailable or invalid, return default_params.
+    """
+    best_params_path = os.path.join(METADATA_DIR, "best_params.json")
+
+    if not os.path.exists(best_params_path):
+        print("No best_params.json found — using default hyperparameters.")
+        return default_params
+
+    try:
+        with open(best_params_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        best_params = data.get("best_params", {})
+        if not isinstance(best_params, dict) or not best_params:
+            print("best_params.json found but empty/invalid — using default hyperparameters.")
+            return default_params
+
+        print(f"Loaded tuned hyperparameters from best_params.json: {best_params}")
+        return {**default_params, **best_params}  # tuned params override defaults
+
+    except Exception as exc:
+        print(f"Error loading best_params.json ({exc}) — using default hyperparameters.")
+        return default_params
+
+
 def train_model() -> None:
     """Train the PD model using a time-based split and save model + metadata.
 
@@ -100,17 +128,23 @@ def train_model() -> None:
         ]
     )
 
+    default_params = {
+        "n_estimators": 300,
+        "max_depth": 5,
+        "learning_rate": 0.05,
+        "subsample": 0.8,
+        "colsample_bytree": 0.8,
+    }
+
+    xgb_params = load_best_params(default_params)
+
     clf = XGBClassifier(
         objective="binary:logistic",
-        n_estimators=300,
-        max_depth=5,
-        learning_rate=0.05,
-        subsample=0.8,
-        colsample_bytree=0.8,
         eval_metric="logloss",
         random_state=RANDOM_STATE,
         n_jobs=-1,
         tree_method="hist",
+        **xgb_params,
     )
 
     pipeline = Pipeline(
@@ -147,6 +181,10 @@ def train_model() -> None:
             "test_start": dates.loc[X_test.index].min().strftime("%Y-%m-%d"),
             "test_end": dates.max().strftime("%Y-%m-%d"),
         },
+        "hyperparameters": xgb_params,
+        "hyperparameter_source": (
+            "tuned_best_params" if xgb_params != default_params else "defaults"
+        ),
     }
 
     os.makedirs(METADATA_DIR, exist_ok=True)

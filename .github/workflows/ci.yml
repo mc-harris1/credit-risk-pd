@@ -57,11 +57,15 @@ jobs:
         run: |
           uv run python tests/generate_synthetic_data.py
 
-      - name: Train model on synthetic data
+      - name: Tune hyperparameters
+        run: |
+          uv run python -m src.models.tune
+
+      - name: Train model with best hyperparameters
         run: |
           uv run python -m src.models.train
 
-      - name: Run model evaluation
+      - name: Evaluate trained model
         run: |
           uv run python -m src.models.evaluate
 
