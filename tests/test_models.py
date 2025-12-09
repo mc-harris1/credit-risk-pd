@@ -1,70 +1,148 @@
-import os
+# tests/test_models.py
+
+import json
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import pytest
-from src.config import METADATA_DIR, MODELS_DIR, PROCESSED_DATA_DIR
+from src.models import evaluate as evaluate_module
+from src.models import train as train_module
+from src.models.evaluate import evaluate_model
+from src.models.train import train_model
 
 
-@pytest.fixture
-def sample_feature_data():
-    """Create sample feature data for testing."""
-    np.random.seed(42)
-    n_samples = 1000
+def _create_synthetic_features(path, filename="loans_features.parquet"):
+    """Create a minimal synthetic loans_features.parquet for training/eval tests."""
+    # 20 synthetic loans over 20 months
+    n = 20
+    dates = pd.date_range("2015-01-01", periods=n, freq="ME")
 
-    # Create sample data with various feature types
-    data = {
-        "loan_amnt": np.random.uniform(1000, 40000, n_samples),
-        "int_rate": np.random.uniform(5, 25, n_samples),
-        "annual_inc": np.random.uniform(20000, 200000, n_samples),
-        "dti": np.random.uniform(0, 40, n_samples),
-        "fico_score": np.random.uniform(600, 850, n_samples),
-        "term": np.random.choice(["36 months", "60 months"], n_samples),
-        "grade": np.random.choice(["A", "B", "C", "D", "E"], n_samples),
-        "home_ownership": np.random.choice(["RENT", "OWN", "MORTGAGE"], n_samples),
-        "verification_status": np.random.choice(["Verified", "Not Verified"], n_samples),
-        "purpose": np.random.choice(
-            ["debt_consolidation", "credit_card", "home_improvement"], n_samples
-        ),
-        "loan_status": np.random.choice(["Fully Paid", "Charged Off", "Current"], n_samples),
-        "default": np.random.choice([0, 1], n_samples, p=[0.8, 0.2]),
-    }
+    df = pd.DataFrame(
+        {
+            "loan_amnt": np.linspace(5000, 15000, n),
+            "annual_inc": np.linspace(40000, 90000, n),
+            "dti": np.linspace(5, 30, n),
+            "term": ["36 months"] * n,
+            "home_ownership": ["RENT", "MORTGAGE"] * (n // 2),
+            "grade": ["B", "C", "D", "E"] * 5,
+            "sub_grade": ["B1", "B2", "C1", "C2", "D1"] * 4,
+            "loan_status": ["Fully Paid", "Charged Off"] * (n // 2),
+            # simple alternating default pattern
+            "default": ([0, 1] * (n // 2)),
+            "issue_d": dates,
+            # Engineered features
+            "term_months": [36] * n,
+            "loan_to_income": np.linspace(5000, 15000, n) / np.linspace(40000, 90000, n),
+            "grade_numeric": [2, 3, 4, 5] * 5,  # B=2, C=3, D=4, E=5
+            "sub_grade_numeric": [2.1, 2.2, 3.1, 3.2, 4.1] * 4,
+        }
+    )
 
-    df = pd.DataFrame(data)
-
-    # Ensure the processed data directory exists
-    os.makedirs(PROCESSED_DATA_DIR, exist_ok=True)
-
-    # Save to the expected location
-    output_path = os.path.join(PROCESSED_DATA_DIR, "loans_features.parquet")
-    df.to_parquet(output_path, index=False)
-
-    yield df
-
-    # Cleanup after test
-    if os.path.exists(output_path):
-        os.remove(output_path)
+    path.mkdir(parents=True, exist_ok=True)
+    (path / filename).write_bytes(b"")  # ensure file gets created
+    df.to_parquet(path / filename, index=False)
 
 
-def test_train_model(sample_feature_data):
-    """Test that train_model runs successfully and creates model files."""
-    from src.models.train import train_model
+def test_train_model(tmp_path, monkeypatch):
+    """
+    Train model on synthetic loans_features.parquet and verify that:
+    - model artifact is created
+    - metadata JSON is created with expected structure
+    """
+    # Arrange: point train module to temp dirs
+    processed_dir = tmp_path / "processed"
+    models_dir = tmp_path / "models"
+    metadata_dir = tmp_path / "metadata"
 
-    # Run the training
+    monkeypatch.setattr(train_module, "PROCESSED_DATA_DIR", processed_dir)
+    monkeypatch.setattr(train_module, "MODELS_DIR", models_dir)
+    monkeypatch.setattr(train_module, "METADATA_DIR", metadata_dir)
+
+    # Create synthetic feature data
+    _create_synthetic_features(processed_dir, filename=train_module.FEATURES_FILE)
+
+    # Act
     train_model()
 
-    # Check that at least one model file was created
-    model_files = [f for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")]
-    assert len(model_files) > 0, "No model file was created"
+    # Assert: model artifact
+    model_path = models_dir / train_module.MODEL_FILE
+    assert model_path.exists(), "Expected trained model artifact to be created."
 
-    # Cleanup: remove all generated model artifacts and metadata
-    for file in os.listdir(MODELS_DIR):
-        file_path = os.path.join(MODELS_DIR, file)
-        if os.path.isfile(file_path):
-            os.remove(file_path)
+    # Assert: metadata JSON
+    metadata_path = metadata_dir / "pd_model_metadata.json"
+    assert metadata_path.exists(), "Expected pd_model_metadata.json to be created."
 
-    if os.path.exists(METADATA_DIR):
-        for file in os.listdir(METADATA_DIR):
-            file_path = os.path.join(METADATA_DIR, file)
-            if os.path.isfile(file_path):
-                os.remove(file_path)
+    with metadata_path.open(encoding="utf-8") as f:
+        metadata = json.load(f)
+
+    # Basic schema checks
+    assert metadata["model_file"] == train_module.MODEL_FILE
+    assert metadata["model_type"] == "XGBClassifier"
+    assert metadata["train_samples"] > 0
+    assert metadata["test_samples"] > 0
+    assert isinstance(metadata["feature_names"], list)
+    assert len(metadata["feature_names"]) > 0
+
+    split_info = metadata["training_split"]
+    assert split_info["type"] == "time_based_fraction"
+    assert split_info["fraction_train"] == 0.8
+    assert split_info["date_column"] == "issue_d"
+    # sanity check parsed dates
+    datetime.fromisoformat(split_info["train_start"])
+    datetime.fromisoformat(split_info["train_end"])
+    datetime.fromisoformat(split_info["test_start"])
+    datetime.fromisoformat(split_info["test_end"])
+
+
+def test_evaluate(tmp_path, monkeypatch):
+    """
+    Evaluate the trained model on a synthetic time-based split and verify that:
+    - evaluation_metrics.json is created with expected keys
+    - ROC, PR, and calibration plots are written
+    """
+    # Arrange: point BOTH train and evaluate modules to the same temp dirs
+    processed_dir = tmp_path / "processed"
+    models_dir = tmp_path / "models"
+    metadata_dir = tmp_path / "metadata"
+
+    # Train module dirs
+    monkeypatch.setattr(train_module, "PROCESSED_DATA_DIR", processed_dir)
+    monkeypatch.setattr(train_module, "MODELS_DIR", models_dir)
+    monkeypatch.setattr(train_module, "METADATA_DIR", metadata_dir)
+
+    # Evaluate module dirs
+    monkeypatch.setattr(evaluate_module, "PROCESSED_DATA_DIR", processed_dir)
+    monkeypatch.setattr(evaluate_module, "MODELS_DIR", models_dir)
+    monkeypatch.setattr(evaluate_module, "METADATA_DIR", metadata_dir)
+
+    # Synthetic features (same helper)
+    _create_synthetic_features(processed_dir, filename=train_module.FEATURES_FILE)
+
+    # First train a model into the temp dirs
+    train_model()
+
+    # Act: run evaluation
+    evaluate_model()
+
+    # Assert: metrics JSON
+    metrics_path = metadata_dir / "evaluation_metrics.json"
+    assert metrics_path.exists(), "Expected evaluation_metrics.json to be created."
+
+    with metrics_path.open(encoding="utf-8") as f:
+        metrics = json.load(f)
+
+    for key in ("roc_auc", "pr_auc", "brier_score", "confusion_matrix", "threshold"):
+        assert key in metrics, f"Missing key '{key}' in evaluation metrics."
+
+    cm = metrics["confusion_matrix"]
+    for key in ("tn", "fp", "fn", "tp"):
+        assert key in cm, f"Missing key '{key}' in confusion_matrix."
+
+    # Assert: evaluation plots
+    roc_path = metadata_dir / "roc_curve.png"
+    pr_path = metadata_dir / "pr_curve.png"
+    calib_path = metadata_dir / "calibration_curve.png"
+
+    assert roc_path.exists(), "Expected ROC curve plot to be created."
+    assert pr_path.exists(), "Expected PR curve plot to be created."
+    assert calib_path.exists(), "Expected calibration curve plot to be created."
