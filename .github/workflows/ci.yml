@@ -53,6 +53,14 @@ jobs:
           path: htmlcov/
 
       # --- NEW: model evaluation ---
+      - name: Generate synthetic data for evaluation
+        run: |
+          uv run python tests/generate_synthetic_data.py
+
+      - name: Train model on synthetic data
+        run: |
+          uv run python -m src.models.train
+
       - name: Run model evaluation
         run: |
           uv run python -m src.models.evaluate
