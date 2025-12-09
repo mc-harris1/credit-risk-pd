@@ -1,357 +1,190 @@
-# Credit Risk Scoring — Probability of Default (PD) Prediction
 
-This project builds an **end-to-end credit risk scoring system** that predicts the **probability that a loan will default**, using real-world consumer lending datasets.
+# Credit Risk PD Model
+A production-style machine learning system for predicting probability of default (PD) and serving real-time credit risk scores.
 
-It includes a full ML pipeline (data → features → modeling → evaluation → serving), a **FastAPI scoring service**, and an optional **Streamlit dashboard** for model exploration and applicant-level explanations.
+## 📌 Overview
 
-The goal is to demonstrate production-quality ML engineering, risk modeling, explainability, and deployment patterns commonly used in **FinTech** environments.
+This project demonstrates how to build and deploy a full end-to-end ML system, including:
 
----
+- Data preprocessing & feature engineering
+- Model tuning, training, and evaluation
+- A FastAPI service for real-time PD scoring
+- A Streamlit UI for interactive exploration
+- CI/CD automation with tests, linting, model training, evaluation, and Docker builds
+- Production-ready Python tooling (uv, ruff, pre-commit)
 
-## 🧰 Tooling: `uv`, `ruff`, & `pre-commit`
+It is intentionally designed to mirror real-world credit risk modeling pipelines used in fintech and lending platforms.
 
-This project uses:
+## 🧠 Problem
 
-- **`uv`** for Python dependency management, virtual environments, and running commands.
-- **`ruff`** for linting and formatting.
-- **`pre-commit`** to enforce code quality (including `ruff`) on every commit.
-- **GitHub Actions** for CI (runs `uv sync`, `pre-commit`, `ruff`, `pytest` with coverage, and builds a Docker image).
+Financial institutions need to estimate the probability that a borrower will default on a loan.
+Accurate PD estimation is critical for:
 
-All commands assume:
+- Underwriting
+- Pricing
+- Credit line management
+- Portfolio risk monitoring
+- Regulatory compliance (e.g., Basel II/III)
 
-- You have `uv` installed.
-- You use `uv run ...` or `uvx ...` instead of raw `python` / `pip`.
+This project builds a robust PD model and exposes it via API so downstream systems (underwriting, demos, dashboards) can consume real-time scores.
 
----
+## 🔧 Technical Highlights
 
-## 📌 Features
+- Machine learning
 
-- **Probability of Default (PD)** prediction for consumer loans
-- Time-based train/validation/test split
-- LightGBM / XGBoost and logistic regression baseline
-- SHAP-based explainability (global + local)
-- FastAPI real-time scoring service
-- Dockerized deployment with a consistent image name/tag strategy
-- Linting + formatting via `ruff` (locally and in CI)
-- Tests via `pytest` with coverage reports (XML + HTML)
-- Optional Streamlit UI for interactive demo
+  - XGBoost classifier optimized via hyperparameter search
+  - Time-based train/validation split to avoid temporal leakage
+  - Feature engineering for credit risk (DTI, LTV-like ratios, grade encodings, etc.)
+  - Evaluation with ROC-AUC, PR-AUC, Brier Score, calibration curve
 
----
+- Modern Python workflow
+  - uv for environment and dependency management
+  - ruff + pre-commit for formatting, linting & style quality
+  - Strong modular architecture under src/
+
+- Service layer
+  - FastAPI endpoint: /predict
+  - JSON schema for loan applications via Pydantic
+  - Dockerized for deployment
+  - Streamlit demo UI for showcasing predictions
+
+- Automated CI/CD
+  - Runs on GitHub Actions
+  - tune → train → evaluate sequence executed automatically
+  - Model performance artifacts uploaded per build
+  - Performance gate: pipeline fails if ROC-AUC falls below threshold
+  - Builds Docker images and tags by commit SHA + latest
+
+## 🧩 System Architecture
+
+<!-- markdownlint-disable MD033 -->
+  <picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/system_architecture_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/system_architecture_light.png">
+  <img alt="System Architecture Diagram" src="docs/system_architecture_light.png">
+</picture>
+<!-- markdownlint-enable MD033 -->
+
+## 🧪 Model Workflow Summary
+
+The full ML lifecycle is run both locally and in CI:
+
+1. Hyperparameter Tuning
+
+    ```bash
+    uv run python -m src.models.tune
+    ```
+
+    Searches over XGBoost params using a time-based validation split and writes:
+
+    - models/metadata/hparam_search_results.json
+    - models/metadata/best_params.json
+
+2. Training
+
+    ```bash
+    uv run python -m src.models.train
+    ```
+
+    - Loads best params (fallback: defaults)
+    - Fits final model on older vintages
+    - Saves the trained model and metadata
+
+3. Evaluation
+
+  ```bash
+  uv run python -m src.models.evaluate
+  ```
+
+  Key endpoint:
+  POST /predict
+
+  Request body (Pydantic schema: LoanApplication):
+
+  ```json
+  {
+    "loan_amnt": 10000,
+    "annual_inc": 85000,
+    "term": "36 months",
+    "home_ownership": "RENT",
+    "grade": "B",
+    "sub_grade": "B3",
+    "dti": 18.2
+  }
+  ```
+
+  Response:
+
+  ```json
+  {
+    "pd": 0.0641
+  }
+  ```
+
+## 🎛 Demo UI (Streamlit)
+
+```bash
+uv run streamlit run src/app/app.py
+```
+
+Interactive demo for scoring sample loans with sliders, dropdowns, and real-time PD predictions.
+
+## 🔄 Continuous Integration (CI)
+
+GitHub Actions automatically runs:
+
+1. pre-commit, ruff, pytest, coverage
+2. tune.py → train.py → evaluate.py
+3. Uploads:
+    - metrics
+    - ROC / PR / calibration plots
+
+4. Enforces a minimum ROC-AUC threshold.
+
+5. Builds Docker image with:
+    - latest
+    - ${GITHUB_SHA} tags
+
+This mirrors the internal pipelines used in production ML teams.
 
 ## 📁 Repository Structure
 
-```text
-credit-risk-pd/
-├── README.md
-├── pyproject.toml
-├── Makefile
-├── .pre-commit-config.yaml
-├── docker/
-│   └── Dockerfile
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-├── data/
-│   ├── raw/
-│   ├── interim/
-│   └── processed/
-├── models/
-│   ├── artifacts/
-│   └── metadata/
-├── notebooks/
-│   ├── 01_eda.ipynb
-│   ├── 02_feature_engineering.ipynb
-│   └── 03_model_prototyping.ipynb
-├── src/
-│   ├── __init__.py
-│   ├── config.py
-│   ├── data/
-│   │   ├── __init__.py
-│   │   ├── load_data.py
-│   │   └── preprocess.py
-│   ├── features/
-│   │   ├── __init__.py
-│   │   └── build_features.py
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── train.py
-│   │   ├── evaluate.py
-│   │   ├── predict.py
-│   │   └── metrics.py
-│   ├── serving/
-│   │   ├── __init__.py
-│   │   └── api.py
-│   └── utils/
-│       ├── __init__.py
-│       └── io.py
-├── streamlit_app/
-│   └── app.py
-└── tests/
-    ├── __init__.py
-    ├── test_api.py
-    ├── test_data.py
-    ├── test_features.py
-    └── test_models.py
+```powershell
+src/
+  api/            FastAPI scoring service
+  app/            Streamlit demo
+  data/           Data preprocessing or synthetic generation
+  features/       Feature engineering
+  models/         tune / train / evaluate
+tests/            Pytest suite
+docker/           Dockerfile and config
 ```
 
----
+Clean, modular, production-style.
 
-## 📊 Data
+## 📚 Further Documentation (Wiki)
 
-### Primary Dataset
+To keep the README focused, deeper technical material lives in the Repository Wiki:
 
-This project uses **LendingClub-style consumer loan data**, featuring:
+- Model Architecture & Data Flow
+- Training & Evaluation Design
+- Hyperparameter Search Details
+- API Contracts & Payload Schemas
+- CI/CD Pipeline Deep Dive
+- Feature Engineering Specification
+- Deployment (Lambda/ECS) Guide
 
-- Loan amount, term, interest rate
-- Income, employment length, home ownership
-- Debt-to-income (DTI), revolving utilization
-- Grade & subgrade
-- Loan status (fully paid, default, charged-off, etc.)
+## 🙋‍♂️ About This Project
 
-### Target Definition
+Designed as a portfolio-grade example of:
 
-```text
-default = 1 → charged-off, default, or severe delinquency
-default = 0 → fully paid
-```
+- ML system design
+- Production engineering practices
+- Automated, reproducible pipelines
+- Real-time model serving
+- Clear separation of concerns across the ML lifecycle
 
-Ambiguous statuses (“Current”, “In Grace Period”, etc.) are excluded.
-
----
-
-## 🛠️ ML Pipeline Overview
-
-### 1. Preprocessing
-
-- Clean categories, handle missing data
-- Filter relevant loan statuses
-- Remove leakage fields
-
-### 2. Feature Engineering
-
-- Loan-to-income ratio
-- DTI normalization
-- Interest rate buckets
-- Grade & subgrade encoding
-- One-hot or target encoding
-
-### 3. Modeling
-
-Baseline:
-
-- Logistic Regression
-
-Advanced:
-
-- LightGBM / XGBoost
-- Optional probability calibration
-
-Metrics:
-
-- ROC-AUC
-- PR-AUC
-- Brier Score
-- Calibration curves
-- Confusion matrices
-
-### 4. Explainability (SHAP)
-
-- Global feature importance
-- Local explanations per applicant
-
----
-
-## 🚀 Model Serving (FastAPI)
-
-### Endpoints
-
-**GET /health**
-Health check.
-
-**POST /score**
-Returns PD, risk band, and (optionally) SHAP-based explanations.
-
-### Run API (local)
-
-```bash
-uv run uvicorn src.serving.api:app --reload --host 0.0.0.0 --port 8000
-```
-
-Swagger UI:
-`http://localhost:8000/docs`
-
----
-
-## 🧪 Tests, Linting, & Pre-commit
-
-### Install dependencies (including dev)
-
-```bash
-uv sync --all-groups
-```
-
-### Run tests
-
-```bash
-uv run pytest -q
-```
-
-### Run tests with coverage
-
-```bash
-uv run pytest --cov=src --cov-report=xml --cov-report=html
-```
-
-This will generate:
-
-- `coverage.xml` – for tools like Codecov / Sonar / CI
-- `htmlcov/` – browsable HTML coverage report
-
-### Lint & format with `ruff`
-
-```bash
-uvx ruff check src tests
-uvx ruff format src tests
-```
-
-### Pre-commit hooks
-
-Install pre-commit locally (once):
-
-```bash
-uv run pre-commit install
-```
-
-Run against all files:
-
-```bash
-uv run pre-commit run --all-files
-```
-
-The `.pre-commit-config.yaml` is configured to:
-
-- Run `ruff` (`check` + `format`)
-- Enforce basic hygiene (trailing whitespace, EOF newline, large-file checks, etc.)
-
----
-
-## 🐳 Docker Image Strategy
-
-The **Dockerfile** lives at `docker/Dockerfile` and is built around:
-
-- Python 3.11 slim base image
-- `uv` installed in the container
-- `uv sync --no-dev` for production-only dependencies
-- Default command: run the FastAPI app via `uvicorn`
-
-Example local build & run:
-
-```bash
-# Local image name (matches Makefile default)
-docker build -t credit-risk-api -f docker/Dockerfile .
-docker run -p 8000:8000 credit-risk-api
-```
-
-### CI Image Tagging
-
-The GitHub Actions workflow uses a consistent image name/tag strategy:
-
-- Base name:
-  `ghcr.io/<owner>/credit-risk-pd`
-- Tags:
-  - `ghcr.io/<owner>/credit-risk-pd:<GITHUB_SHA>`
-  - `ghcr.io/<owner>/credit-risk-pd:latest`
-
-The CI job builds the image with both tags so you get:
-
-- A unique image per commit (SHA tag)
-- A rolling `latest` tag for quick testing
-
-> Note: pushing to GHCR requires configuring `docker login` with a GitHub token. The provided workflow only **builds** the image; you can add a push step if desired.
-
----
-
-## 🤖 Continuous Integration (GitHub Actions)
-
-The CI workflow (`.github/workflows/ci.yml`) runs on pushes and PRs and:
-
-1. Checks out the repo
-2. Sets up Python 3.11
-3. Installs `uv`
-4. Runs `uv sync --all-groups` (including dev tools)
-5. Runs `pre-commit` on all files (includes `ruff`)
-6. Runs `ruff` explicitly on `src` and `tests`
-7. Runs `pytest` with coverage reports
-8. Builds a Docker image with consistent tags
-9. Uploads coverage artifacts (HTML + XML) for inspection
-
-So every PR gets:
-
-- Style & lint checks
-- Automated tests
-- Coverage reports (as downloadable artifacts)
-- A Docker image build using the same Dockerfile you use locally
-
----
-
-## 📊 Optional Streamlit Demo
-
-```bash
-uv run streamlit run streamlit_app/app.py
-```
-
-This launches a simple UI that:
-
-- Collects loan application parameters
-- Calls the FastAPI `/score` endpoint
-- Displays PD and risk band (and, later, explanations)
-
----
-
-## 🧭 Full Pipeline (with `uv`)
-
-Install dependencies:
-
-```bash
-uv sync --all-groups
-```
-
-Preprocess:
-
-```bash
-uv run python -m src.data.preprocess
-```
-
-Feature build:
-
-```bash
-uv run python -m src.features.build_features
-```
-
-Train:
-
-```bash
-uv run python -m src.models.train
-```
-
-Serve:
-
-```bash
-uv run uvicorn src.serving.api:app --reload --host 0.0.0.0 --port 8000
-```
-
----
-
-## 📦 Future Work
-
-- Add LGD/EAD for full expected loss modeling
-- Survival analysis for time-to-default
-- Reject inference to correct approval bias
-- Data & score drift monitoring (PSI, feature drift)
-- Push Docker images to GHCR or another registry from CI
-- Deploy to AWS (Lambda/ECS), GCP (Cloud Run), or Azure
-
----
+Perfect for demonstrating full-stack machine learning engineering capabilities.
 
 ## 📄 License
 

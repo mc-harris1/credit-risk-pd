@@ -7,8 +7,10 @@ import numpy as np
 import pandas as pd
 from src.models import evaluate as evaluate_module
 from src.models import train as train_module
+from src.models import tune as tune_module
 from src.models.evaluate import evaluate_model
 from src.models.train import train_model
+from src.models.tune import tune_model
 
 
 def _create_synthetic_features(path, filename="loans_features.parquet"):
@@ -146,3 +148,62 @@ def test_evaluate(tmp_path, monkeypatch):
     assert roc_path.exists(), "Expected ROC curve plot to be created."
     assert pr_path.exists(), "Expected PR curve plot to be created."
     assert calib_path.exists(), "Expected calibration curve plot to be created."
+
+
+def test_tune(tmp_path, monkeypatch):
+    """
+    Run hyperparameter tuning on synthetic loans_features.parquet and verify that:
+    - hparam_search_results.json is created with expected structure
+    - best_params.json is created with best params and ROC-AUC score
+    """
+    # Arrange: point train and tune modules to temp dirs
+    processed_dir = tmp_path / "processed"
+    metadata_dir = tmp_path / "metadata"
+
+    # tune() uses load_feature_data from train_module, so patch train_module
+    monkeypatch.setattr(train_module, "PROCESSED_DATA_DIR", processed_dir)
+    # tune() uses METADATA_DIR from config, patch both tune and config
+    monkeypatch.setattr(tune_module, "METADATA_DIR", metadata_dir)
+
+    # Create synthetic feature data
+    _create_synthetic_features(processed_dir, filename="loans_features.parquet")
+
+    # Act
+    tune_model()
+
+    # Assert: hparam_search_results.json
+    hparam_results_path = metadata_dir / "hparam_search_results.json"
+    assert hparam_results_path.exists(), "Expected hparam_search_results.json to be created."
+
+    with hparam_results_path.open(encoding="utf-8") as f:
+        results = json.load(f)
+
+    assert isinstance(results, list), "Expected hparam_search_results to be a list."
+    assert len(results) > 0, "Expected at least one hyperparameter combination to be evaluated."
+
+    # Check structure of first result
+    first_result = results[0]
+    assert "params" in first_result, "Expected 'params' key in result."
+    assert "roc_auc" in first_result, "Expected 'roc_auc' key in result."
+
+    params = first_result["params"]
+    for key in ("n_estimators", "max_depth", "learning_rate", "subsample", "colsample_bytree"):
+        assert key in params, f"Expected '{key}' in params."
+
+    # Assert: best_params.json
+    best_params_path = metadata_dir / "best_params.json"
+    assert best_params_path.exists(), "Expected best_params.json to be created."
+
+    with best_params_path.open(encoding="utf-8") as f:
+        best_results = json.load(f)
+
+    assert "best_params" in best_results, "Expected 'best_params' key in best_results."
+    assert "best_roc_auc" in best_results, "Expected 'best_roc_auc' key in best_results."
+
+    best_params = best_results["best_params"]
+    for key in ("n_estimators", "max_depth", "learning_rate", "subsample", "colsample_bytree"):
+        assert key in best_params, f"Expected '{key}' in best_params."
+
+    assert isinstance(best_results["best_roc_auc"], (int, float)), (
+        "Expected best_roc_auc to be numeric."
+    )
