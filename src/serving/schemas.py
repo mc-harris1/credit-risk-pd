@@ -2,6 +2,7 @@
 # Licensed under the MIT License. See LICENSE file in the project root.
 
 from pydantic import BaseModel, Field
+from typing_extensions import Literal
 
 
 class LoanApplication(BaseModel):
@@ -17,3 +18,15 @@ class LoanApplication(BaseModel):
     home_ownership: str | None = Field(default="RENT")
     issue_d: str | None = Field(default="2020-01")
     # extend with whatever features you actually train on
+
+
+class FeatureContribution(BaseModel):
+    feature: str
+    shap_value: float
+
+
+class ScoreResponse(BaseModel):
+    prob_default: float
+    risk_band: Literal["Low", "Medium", "High"]
+    # Placeholder: in the future, add SHAP-based explanations.
+    top_factors: list[FeatureContribution] = []
