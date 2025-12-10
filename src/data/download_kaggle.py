@@ -13,9 +13,6 @@ _project_root = Path(__file__).parent.parent.parent
 _env_file = _project_root / ".env"
 load_dotenv(_env_file)
 
-# Now import Kaggle API after environment variables are set
-from kaggle.api.kaggle_api_extended import KaggleApi  # noqa: E402
-
 from src.config import RAW_DATA_DIR  # noqa: E402
 
 # Default Kaggle dataset slug (you can change this to your preferred dataset)
@@ -44,6 +41,9 @@ def download_dataset(
     unzip:
         Whether to unzip the downloaded archive.
     """
+    # Import KaggleApi only when needed to avoid authentication errors during import
+    from kaggle.api.kaggle_api_extended import KaggleApi
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     api = KaggleApi()
