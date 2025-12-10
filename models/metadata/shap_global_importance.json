@@ -1,0 +1,284 @@
+{
+  "importance": [
+    {
+      "feature": "num__sub_grade_numeric",
+      "mean_abs_shap": 0.2756524293183313
+    },
+    {
+      "feature": "num__grade_numeric",
+      "mean_abs_shap": 0.16516520627732223
+    },
+    {
+      "feature": "num__dti",
+      "mean_abs_shap": 0.13881572593847005
+    },
+    {
+      "feature": "num__int_rate",
+      "mean_abs_shap": 0.13521697591148327
+    },
+    {
+      "feature": "num__term_months",
+      "mean_abs_shap": 0.1060978026861292
+    },
+    {
+      "feature": "num__annual_inc",
+      "mean_abs_shap": 0.0800017468629132
+    },
+    {
+      "feature": "num__loan_to_income",
+      "mean_abs_shap": 0.06855443925790501
+    },
+    {
+      "feature": "num__loan_amnt",
+      "mean_abs_shap": 0.05073280776203347
+    },
+    {
+      "feature": "cat__term_ 36 months",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__term_ 60 months",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__grade_A",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__grade_B",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__grade_C",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__grade_D",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__grade_E",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__grade_F",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__grade_G",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_A1",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_A2",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_A3",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_A4",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_A5",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_B1",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_B2",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_B3",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_B4",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_B5",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_C1",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_C2",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_C3",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_C4",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_C5",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_D1",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_D2",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_D3",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_D4",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_D5",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_E1",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_E2",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_E3",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_E4",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_E5",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_F1",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_F2",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_F3",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_F4",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_F5",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_G1",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_G2",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_G3",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_G4",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__sub_grade_G5",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_1 year",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_10+ years",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_2 years",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_3 years",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_4 years",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_5 years",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_6 years",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_7 years",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_8 years",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_9 years",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_< 1 year",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__emp_length_None",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__home_ownership_ANY",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__home_ownership_MORTGAGE",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__home_ownership_NONE",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__home_ownership_OTHER",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__home_ownership_OWN",
+      "mean_abs_shap": 0.0
+    },
+    {
+      "feature": "cat__home_ownership_RENT",
+      "mean_abs_shap": 0.0
+    }
+  ]
+}
