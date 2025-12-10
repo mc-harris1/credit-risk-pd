@@ -15,6 +15,7 @@ help:
 	@echo	"  make pre-commit  - Run all pre-commit checks"
 	@echo	"  make api         - Run FastAPI app with uvicorn"
 	@echo	"  make streamlit   - Run Streamlit demo app"
+	@echo   "  make data-kaggle - Download dataset from Kaggle"
 	@echo 	"  make tune	    - Run hyperparameter tuning"
 	@echo	"  make train       - Run model training"
 	@echo	"  make preprocess  - Run data preprocessing"
@@ -50,6 +51,10 @@ pre-commit:
 	uvx pre-commit run --all-files
 
 # ---- Pipeline steps ----
+
+.PHONY: data-kaggle
+data-kaggle:
+	uv run python -m src.data.download_kaggle
 
 .PHONY: preprocess
 preprocess:
