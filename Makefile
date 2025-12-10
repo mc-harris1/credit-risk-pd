@@ -20,6 +20,7 @@ help:
 	@echo	"  make preprocess  - Run data preprocessing"
 	@echo	"  make features    - Run feature engineering"
 	@echo	"  make evaluate    - Run model evaluation"
+	@echo	"  make explain     - Run model explanation"
 	@echo	"  make full-pipeline - Run full ML pipeline (preprocess, features, tune, train, evaluate)"
 	@echo	"  make docker-build- Build Docker image"
 	@echo	"  make docker-run  - Run Docker container"
@@ -70,8 +71,12 @@ train:
 evaluate:
 	uv run python -m src.models.evaluate
 
+.PHONY: explain
+explain:
+	uv run python -m src.models.explain
+
 .PHONEY: full-pipeline
-full-pipeline: preprocess features train evaluate
+full-pipeline: preprocess features train evaluate explain
 
 # ---- App servers ----
 

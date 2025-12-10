@@ -1,6 +1,6 @@
 {
   "model_file": "pd_model_xgb.pkl",
-  "trained_at_utc": "2025-12-09T17:08:33.769262+00:00",
+  "trained_at_utc": "2025-12-10T03:09:08.182495+00:00",
   "model_type": "XGBClassifier",
   "random_state": 42,
   "train_samples": 1092661,
@@ -28,5 +28,13 @@
     "train_end": "2016-11-01",
     "test_start": "2016-11-01",
     "test_end": "2018-12-01"
-  }
+  },
+  "hyperparameters": {
+    "n_estimators": 200,
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "subsample": 1.0,
+    "colsample_bytree": 1.0
+  },
+  "hyperparameter_source": "tuned_best_params"
 }

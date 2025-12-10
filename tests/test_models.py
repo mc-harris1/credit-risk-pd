@@ -207,3 +207,52 @@ def test_tune(tmp_path, monkeypatch):
     assert isinstance(best_results["best_roc_auc"], (int, float)), (
         "Expected best_roc_auc to be numeric."
     )
+
+
+def test_explain_shap_global(tmp_path, monkeypatch):
+    """
+    Run SHAP global explanation on synthetic loans_features.parquet and verify that:
+    - shap_global_importance.json is created with expected structure
+    """
+    # Arrange: point train and explain modules to temp dirs
+    processed_dir = tmp_path / "processed"
+    models_dir = tmp_path / "models"
+    metadata_dir = tmp_path / "metadata"
+
+    # Patch train module (used by both train and explain)
+    monkeypatch.setattr(train_module, "PROCESSED_DATA_DIR", processed_dir)
+    monkeypatch.setattr(train_module, "MODELS_DIR", models_dir)
+    monkeypatch.setattr(train_module, "METADATA_DIR", metadata_dir)
+
+    # Also patch explain module's imported constants
+    from src.models import explain as explain_module
+
+    monkeypatch.setattr(explain_module, "MODELS_DIR", models_dir)
+    monkeypatch.setattr(explain_module, "METADATA_DIR", metadata_dir)
+
+    # Create synthetic feature data
+    _create_synthetic_features(processed_dir, filename=train_module.FEATURES_FILE)
+
+    # First train a model into the temp dirs
+    train_module.train_model()
+
+    # Act: run SHAP global explanation
+    from src.models.explain import run_shap_global
+
+    run_shap_global(num_background=10, num_samples=10)
+
+    # Assert: SHAP global importance JSON
+    importance_path = metadata_dir / "shap_global_importance.json"
+    assert importance_path.exists(), "Expected shap_global_importance.json to be created."
+
+    with importance_path.open(encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert "importance" in data, "Expected 'importance' key in JSON."
+    importance = data["importance"]
+    assert isinstance(importance, list), "Expected SHAP global importance to be a list."
+    assert len(importance) > 0, "Expected at least one feature importance entry."
+
+    first_entry = importance[0]
+    assert "feature" in first_entry, "Expected 'feature' key in importance entry."
+    assert "mean_abs_shap" in first_entry, "Expected 'mean_abs_shap' key in importance entry."
