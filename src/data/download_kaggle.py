@@ -95,9 +95,11 @@ def cleanup_output_dir(output_dir: Path = Path(DEFAULT_OUTPUT_DIR)) -> None:
         if item.is_dir():
             # Remove only non-CSV files in subdirectories
             for subitem in item.rglob("*"):
-                if subitem.is_file() and subitem.suffix != ".csv":
+                if subitem.is_file() and subitem.suffix != ".csv" and subitem.suffix != ".gitkeep":
                     subitem.unlink()
-                    print(f"Removed non-CSV file: {subitem.relative_to(output_dir)}")
+                    print(
+                        f"Removed un-needed file (not CSV or .gitkeep): {subitem.relative_to(output_dir)}"
+                    )
             # Remove empty subdirectories (bottom-up)
             for subdir in sorted(item.rglob("*"), key=lambda p: len(p.parts), reverse=True):
                 if subdir.is_dir():
