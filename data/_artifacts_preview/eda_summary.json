@@ -217,8 +217,7 @@
         "hardship_last_payment_amount",
         "settlement_amount",
         "settlement_percentage",
-        "settlement_term",
-        "default"
+        "settlement_term"
     ],
     "categorical_cols": [
         "id",
