@@ -141,6 +141,11 @@ def build_engineered_features(cfg: BuildFeaturesConfig) -> Tuple[pd.DataFrame, D
     # keep it. Here, we only ensure domain features are applied consistently.
     df = add_domain_features(df)
 
+    # Create default target if loan_status exists and target doesn't
+    if cfg.target_col not in df.columns and "loan_status" in df.columns:
+        default_statuses = {"Charged Off", "Default", "Late (31-120 days)", "In Grace Period"}
+        df[cfg.target_col] = df["loan_status"].isin(default_statuses).astype(int)
+
     # Minimal sanity checks
     if cfg.target_col not in df.columns:
         raise KeyError(f"Expected target column '{cfg.target_col}' to exist after FE.")
