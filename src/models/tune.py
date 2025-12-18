@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import product
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -38,9 +39,17 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class TuneConfig:
+    # Data contract
+    feature_manifest_path: Optional[Path] = None
+    features_path: Optional[Path] = None
+    target_col: str = "default"
+    date_col: str = "issue_d"
+    train_fraction: float = 0.80
+
+    # Output
     out_dir: Path = Path(METADATA_DIR) / "tuning" / datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    train_fraction: float = 0.80
+    # Reproducibility
     random_state: int = RANDOM_STATE
 
     # xgb fixed bits
@@ -91,12 +100,20 @@ def hyperparam_grid() -> Dict[str, List[Any]]:
     }
 
 
-def prepare_data(train_fraction: float) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+def prepare_data(cfg: TuneConfig) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """Load engineered features and split/time-order consistently with train/eval."""
 
-    contract = load_data_contract()
+    contract = load_data_contract(
+        feature_manifest_path=cfg.feature_manifest_path,
+        features_path=cfg.features_path,
+        target_col=cfg.target_col,
+        date_col=cfg.date_col,
+        train_fraction=cfg.train_fraction,
+    )
     X, y, dates = load_engineered_features(contract)
-    X_train, X_val, y_train, y_val = time_based_split(X, y, dates, train_fraction=train_fraction)
+    X_train, X_val, y_train, y_val = time_based_split(
+        X, y, dates, train_fraction=cfg.train_fraction
+    )
 
     X_train = apply_domain_features_and_drop_date(X_train, date_col=contract.date_col)
     X_val = apply_domain_features_and_drop_date(X_val, date_col=contract.date_col)
@@ -215,11 +232,25 @@ def write_tuning_artifacts(
     LOGGER.info("Saved manifest: %s", manifest_path)
 
 
+def _env_path(name: str) -> Optional[Path]:
+    v = os.getenv(name)
+    return Path(v) if v else None
+
+
 def tune() -> Dict[str, Any]:
-    cfg = TuneConfig()
+    cfg = TuneConfig(
+        feature_manifest_path=_env_path("FEATURE_MANIFEST_PATH"),
+        features_path=_env_path("FEATURES_PATH"),
+        target_col=os.getenv("TARGET_COL", "default"),
+        date_col=os.getenv("DATE_COL", "issue_d"),
+        train_fraction=float(os.getenv("TRAIN_FRACTION", "0.8")),
+        out_dir=_env_path("TUNE_OUT_DIR") or TuneConfig().out_dir,
+        random_state=int(os.getenv("RANDOM_STATE", str(RANDOM_STATE))),
+        log_level=os.getenv("LOG_LEVEL", "INFO"),
+    )
     setup_logging(cfg.log_level)
 
-    X_train, X_val, y_train, y_val = prepare_data(cfg.train_fraction)
+    X_train, X_val, y_train, y_val = prepare_data(cfg)
     grid = hyperparam_grid()
 
     results, best = run_grid_search(X_train, y_train, X_val, y_val, cfg, grid)
