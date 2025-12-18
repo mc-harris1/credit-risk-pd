@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from src.config import ARTIFACTS_DIR, DATA_DIR, INTERIM_DATA_DIR, PROCESSED_DATA_DIR
+from src.data.preprocess import STATUS_TO_DEFAULT
 from src.features.transforms import add_domain_features
 
 LOGGER = logging.getLogger(__name__)
@@ -102,6 +103,34 @@ def _infer_model_features(
     return [c for c in df.columns if c not in drop]
 
 
+def _maybe_create_target_from_status(
+    df: pd.DataFrame,
+    target_col: str,
+    status_map: Dict[str, int],
+) -> pd.DataFrame:
+    """Create binary target from loan_status if missing.
+
+    Preserves an existing target column; if loan_status is absent or mapping fails,
+    the caller will still perform the usual target existence check.
+    """
+
+    if target_col in df.columns:
+        return df
+
+    if "loan_status" not in df.columns:
+        return df
+
+    mapped = df["loan_status"].map(status_map)
+    if mapped.isna().all():
+        return df
+
+    df = df.copy()
+    df[target_col] = mapped
+    df = df.dropna(subset=[target_col])
+    df[target_col] = df[target_col].astype(int)
+    return df
+
+
 def build_engineered_features(cfg: BuildFeaturesConfig) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     if not cfg.input_path.exists():
         interim = cfg.input_path.parent
@@ -119,7 +148,10 @@ def build_engineered_features(cfg: BuildFeaturesConfig) -> Tuple[pd.DataFrame, D
     if df.empty:
         raise ValueError("Input dataframe is empty.")
 
-    # Apply domain features. Target is expected to already exist from preprocess.
+    # Create target from loan_status when preprocess has not already done so.
+    df = _maybe_create_target_from_status(df, cfg.target_col, STATUS_TO_DEFAULT)
+
+    # Apply deterministic domain features.
     df = add_domain_features(df)
 
     if cfg.target_col not in df.columns:
