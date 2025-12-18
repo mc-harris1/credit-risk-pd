@@ -16,13 +16,14 @@ help:
 	@echo	"  make api         - Run FastAPI app with uvicorn"
 	@echo	"  make streamlit   - Run Streamlit demo app"
 	@echo   "  make data-kaggle - Download dataset from Kaggle"
-	@echo 	"  make tune	    - Run hyperparameter tuning"
-	@echo	"  make train       - Run model training"
 	@echo	"  make preprocess  - Run data preprocessing"
 	@echo	"  make features    - Run feature engineering"
+	@echo 	"  make tune	    - Run hyperparameter tuning"
+	@echo	"  make train       - Run model training"
 	@echo	"  make evaluate    - Run model evaluation"
+	@echo	"  make monitor     - Run model monitoring"
+	@echo	"  make pipeline    - Run full ML pipeline (data-kaggle, preprocess, features, tune, train, evaluate, monitor)"
 	@echo	"  make explain     - Run model explanation"
-	@echo	"  make full-pipeline - Run full ML pipeline (preprocess, features, tune, train, evaluate)"
 	@echo	"  make docker-build- Build Docker image"
 	@echo	"  make docker-run  - Run Docker container"
 
@@ -76,12 +77,16 @@ train:
 evaluate:
 	uv run python -m src.models.evaluate
 
+.PHONY: monitor
+monitor:
+	uv run python -m src.models.monitor
+
+.PHONY: pipeline
+pipeline: data-kaggle preprocess features tune train evaluate monitor
+
 .PHONY: explain
 explain:
 	uv run python -m src.models.explain
-
-.PHONEY: full-pipeline
-full-pipeline: preprocess features train evaluate explain
 
 # ---- App servers ----
 

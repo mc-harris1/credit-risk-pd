@@ -1,0 +1,768 @@
+{
+  "categorical_strategy_rules": {
+    "fallback": "count_frequency",
+    "one_hot_max": 10,
+    "target_mean_max": 100
+  },
+  "datetime_defaults": {
+    "errors": "coerce",
+    "timezone": null
+  },
+  "datetime_strategy_rules": {
+    "derive": [
+      "year",
+      "month",
+      "quarter"
+    ],
+    "drop_raw": true
+  },
+  "encoding_fit_rules": {
+    "target_mean": {
+      "cv_folds": 5,
+      "fit_on": "train_only",
+      "handle_missing": "prior",
+      "handle_unknown": "prior",
+      "smoothing": "auto"
+    }
+  },
+  "exclusions": {
+    "by_reason": {
+      "cols_to_drop": [],
+      "constant_cols": [],
+      "identifier_cols": [],
+      "low_variance_cols": []
+    },
+    "excluded_feature_cols": [],
+    "identifier_cols": [],
+    "notes": "Exclusions are derived from EDA contract (cols_to_drop, constant_cols, low_variance_cols) plus optional explicit identifier_cols. No heuristic-based dropping is used.",
+    "target": "default"
+  },
+  "features": {
+    "categorical": {
+      "addr_state": {
+        "cardinality": 51,
+        "encoding_strategy": "target_mean",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_categories_count": 16,
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "application_type": {
+        "cardinality": 2,
+        "encoding_strategy": "one_hot",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_categories_count": 0,
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "emp_length": {
+        "cardinality": 12,
+        "encoding_strategy": "target_mean",
+        "missing_rate": 0.06496666418024431,
+        "missing_token": "__MISSING__",
+        "rare_categories_count": 0,
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "grade": {
+        "cardinality": 7,
+        "encoding_strategy": "one_hot",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_categories_count": 0,
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "home_ownership": {
+        "cardinality": 6,
+        "encoding_strategy": "one_hot",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_categories_count": 3,
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "purpose": {
+        "cardinality": 14,
+        "encoding_strategy": "target_mean",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_categories_count": 3,
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "sub_grade": {
+        "cardinality": 35,
+        "encoding_strategy": "target_mean",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_categories_count": 9,
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "term": {
+        "cardinality": 2,
+        "encoding_strategy": "one_hot",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_categories_count": 0,
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "zip_code": {
+        "cardinality": 957,
+        "encoding_strategy": "count_frequency",
+        "missing_rate": 4.4400399248390043e-07,
+        "missing_token": "__MISSING__",
+        "rare_categories_count": 928,
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      }
+    },
+    "categorical_defaults": {},
+    "datetime": {
+      "issue_d": {
+        "derived_features": [
+          "issue_d_year",
+          "issue_d_month",
+          "issue_d_quarter"
+        ],
+        "drop_raw": true,
+        "missing_rate": 0.0,
+        "timezone": null
+      }
+    },
+    "numerical": {
+      "acc_open_past_24mths": {
+        "min_value": 0.0,
+        "missing_rate": 0.022213519743969536,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.400984356350065
+      },
+      "all_util": {
+        "min_value": 0.0,
+        "missing_rate": 0.384321419818207,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": -0.1228313367376989
+      },
+      "annual_inc": {
+        "min_value": 0.0,
+        "missing_rate": 1.7760159699356017e-06,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 494.0444945411064
+      },
+      "annual_inc_joint": {
+        "min_value": 5693.51,
+        "missing_rate": 0.9468900184350457,
+        "planned_transformation": "log",
+        "shift_for_transformation": 0.0,
+        "skewness": 21.823434928885924
+      },
+      "avg_cur_bal": {
+        "min_value": 0.0,
+        "missing_rate": 0.03123390485527246,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 3.868766389898105
+      },
+      "bc_open_to_buy": {
+        "min_value": 0.0,
+        "missing_rate": 0.033221266725630395,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 3.7353664543264835
+      },
+      "bc_util": {
+        "min_value": 0.0,
+        "missing_rate": 0.033722991237137206,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": -0.26932581124627497
+      },
+      "delinq_2yrs": {
+        "min_value": 0.0,
+        "missing_rate": 1.2876115782033112e-05,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 5.936357230616777
+      },
+      "dti": {
+        "min_value": -1.0,
+        "missing_rate": 0.0007556947952075986,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1.000001,
+        "skewness": 29.288637027984038
+      },
+      "dti_joint": {
+        "min_value": 0.0,
+        "missing_rate": 0.9468917944510157,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.22230713980809494
+      },
+      "fico_range_high": {
+        "min_value": 614.0,
+        "missing_rate": 0.0,
+        "planned_transformation": "log",
+        "shift_for_transformation": 0.0,
+        "skewness": 1.1921952869748569
+      },
+      "fico_range_low": {
+        "min_value": 610.0,
+        "missing_rate": 0.0,
+        "planned_transformation": "log",
+        "shift_for_transformation": 0.0,
+        "skewness": 1.1919554890135478
+      },
+      "funded_amnt": {
+        "min_value": 500.0,
+        "missing_rate": 0.0,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.779888973734718
+      },
+      "il_util": {
+        "min_value": 0.0,
+        "missing_rate": 0.4737500399603593,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": -0.17143728550286322
+      },
+      "inq_fi": {
+        "min_value": 0.0,
+        "missing_rate": 0.38422462694784554,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 2.664732027633444
+      },
+      "installment": {
+        "min_value": 4.93,
+        "missing_rate": 0.0,
+        "planned_transformation": "log",
+        "shift_for_transformation": 0.0,
+        "skewness": 1.002478130365364
+      },
+      "installment_to_income": {
+        "availability": "inference_time",
+        "derivation": {
+          "clip": {
+            "max": null,
+            "min": 0.0
+          },
+          "denominator": "annual_inc",
+          "method": "ratio",
+          "numerator": "installment",
+          "zero_division": "null"
+        },
+        "notes": "Monthly payment burden relative to reported annual income",
+        "planned_transformation": "none",
+        "source": [
+          "installment",
+          "annual_inc"
+        ],
+        "type": "derived"
+      },
+      "int_rate": {
+        "min_value": 5.31,
+        "missing_rate": 0.0,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.7680447823837451
+      },
+      "loan_age_months": {
+        "availability": "inference_time",
+        "derivation": {
+          "method": "months_since",
+          "reference_date": "prediction_time",
+          "rounding": "floor"
+        },
+        "notes": "Computed as full months elapsed since loan issue date",
+        "planned_transformation": "none",
+        "source": [
+          "issue_d"
+        ],
+        "type": "derived"
+      },
+      "loan_amnt": {
+        "min_value": 500.0,
+        "missing_rate": 0.0,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.7788885174941861
+      },
+      "max_bal_bc": {
+        "min_value": 0.0,
+        "missing_rate": 0.38422462694784554,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 13.743831876040352
+      },
+      "mo_sin_old_il_acct": {
+        "min_value": 0.0,
+        "missing_rate": 0.06163752224460002,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.3505902035482193
+      },
+      "mo_sin_old_rev_tl_op": {
+        "min_value": 1.0,
+        "missing_rate": 0.03120326857979107,
+        "planned_transformation": "log",
+        "shift_for_transformation": 0.0,
+        "skewness": 1.0078182917109277
+      },
+      "mo_sin_rcnt_rev_tl_op": {
+        "min_value": 0.0,
+        "missing_rate": 0.03120326857979107,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 3.592165475719454
+      },
+      "mo_sin_rcnt_tl": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 4.599624785519038
+      },
+      "mort_acc": {
+        "min_value": 0.0,
+        "missing_rate": 0.022213519743969536,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.7898859489687111
+      },
+      "num_actv_bc_tl": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.4762684239141661
+      },
+      "num_actv_rev_tl": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.5732193458269899
+      },
+      "num_bc_sats": {
+        "min_value": 0.0,
+        "missing_rate": 0.026014193919631726,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.748331171088253
+      },
+      "num_bc_tl": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.4250161473205785
+      },
+      "num_il_tl": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 2.1028212243299502
+      },
+      "num_op_rev_tl": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.5266056895044087
+      },
+      "num_rev_accts": {
+        "min_value": 0.0,
+        "missing_rate": 0.03120326857979107,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.3692128830365036
+      },
+      "num_rev_tl_bal_gt_0": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.4705149579706804
+      },
+      "num_sats": {
+        "min_value": 0.0,
+        "missing_rate": 0.026014193919631726,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.3148703572217675
+      },
+      "num_tl_120dpd_2m": {
+        "min_value": 0.0,
+        "missing_rate": 0.0680254076844659,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 55.76437804799143
+      },
+      "num_tl_90g_dpd_24m": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 14.914148198589585
+      },
+      "num_tl_op_past_12m": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.5032570341748202
+      },
+      "open_acc": {
+        "min_value": 0.0,
+        "missing_rate": 1.2876115782033112e-05,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.3158110401227248
+      },
+      "open_acc_6m": {
+        "min_value": 0.0,
+        "missing_rate": 0.384225070951838,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.681507354849286
+      },
+      "open_act_il": {
+        "min_value": 0.0,
+        "missing_rate": 0.38422462694784554,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 2.9766907100844215
+      },
+      "open_il_12m": {
+        "min_value": 0.0,
+        "missing_rate": 0.38422462694784554,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.7916766097211567
+      },
+      "open_il_24m": {
+        "min_value": 0.0,
+        "missing_rate": 0.38422462694784554,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.7602460311369943
+      },
+      "open_rv_12m": {
+        "min_value": 0.0,
+        "missing_rate": 0.38422462694784554,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 2.018320919983164
+      },
+      "open_rv_24m": {
+        "min_value": 0.0,
+        "missing_rate": 0.38422462694784554,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.9745012302256948
+      },
+      "pct_tl_nvr_dlq": {
+        "min_value": 0.0,
+        "missing_rate": 0.03127164519463359,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": -2.279211103531266
+      },
+      "percent_bc_gt_75": {
+        "min_value": 0.0,
+        "missing_rate": 0.033418404498293246,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.30982884002208594
+      },
+      "pub_rec": {
+        "min_value": 0.0,
+        "missing_rate": 1.2876115782033112e-05,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 11.399669994694483
+      },
+      "pub_rec_bankruptcies": {
+        "min_value": 0.0,
+        "missing_rate": 0.000606065449740524,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 3.3727148080672076
+      },
+      "recent_credit_inquiries_6m": {
+        "availability": "inference_time",
+        "derivation": {
+          "method": "identity"
+        },
+        "notes": "Renamed for semantic clarity; no transformation applied",
+        "planned_transformation": "none",
+        "source": [
+          "inq_last_6mths"
+        ],
+        "type": "rename"
+      },
+      "revol_bal": {
+        "min_value": 0.0,
+        "missing_rate": 0.0,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 13.237416448575038
+      },
+      "revol_bal_joint": {
+        "min_value": 0.0,
+        "missing_rate": 0.9524782526844482,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 3.0334679724093285
+      },
+      "sec_app_chargeoff_within_12_mths": {
+        "min_value": 0.0,
+        "missing_rate": 0.9524778086804556,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 20.358464695744445
+      },
+      "sec_app_fico_range_high": {
+        "min_value": 544.0,
+        "missing_rate": 0.9524778086804556,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.06461436816499741
+      },
+      "sec_app_fico_range_low": {
+        "min_value": 540.0,
+        "missing_rate": 0.9524778086804556,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.06458773627000522
+      },
+      "sec_app_mort_acc": {
+        "min_value": 0.0,
+        "missing_rate": 0.9524778086804556,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.4506956588841253
+      },
+      "sec_app_num_rev_accts": {
+        "min_value": 0.0,
+        "missing_rate": 0.9524778086804556,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.4298297596614138
+      },
+      "sec_app_open_acc": {
+        "min_value": 0.0,
+        "missing_rate": 0.9524778086804556,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 1.182817991281209
+      },
+      "sec_app_open_act_il": {
+        "min_value": 0.0,
+        "missing_rate": 0.9524778086804556,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 2.804235016810552
+      },
+      "tax_liens": {
+        "min_value": 0.0,
+        "missing_rate": 4.662041921080954e-05,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 32.13817485105947
+      },
+      "tot_coll_amt": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 850.5148878480676
+      },
+      "tot_cur_bal": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 2.9786911428528065
+      },
+      "tot_hi_cred_lim": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 3.837167276196866
+      },
+      "total_acc": {
+        "min_value": 1.0,
+        "missing_rate": 1.2876115782033112e-05,
+        "planned_transformation": "log",
+        "shift_for_transformation": 0.0,
+        "skewness": 1.0072064744071423
+      },
+      "total_bal_ex_mort": {
+        "min_value": 0.0,
+        "missing_rate": 0.022213519743969536,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 4.240783892408486
+      },
+      "total_bal_il": {
+        "min_value": 0.0,
+        "missing_rate": 0.38422462694784554,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 3.8243605426935665
+      },
+      "total_bc_limit": {
+        "min_value": 0.0,
+        "missing_rate": 0.022213519743969536,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 2.990513960954326
+      },
+      "total_cu_tl": {
+        "min_value": 0.0,
+        "missing_rate": 0.384225070951838,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 3.5686840563284563
+      },
+      "total_il_high_credit_limit": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 3.1029030581647343
+      },
+      "total_rev_hi_lim": {
+        "min_value": 0.0,
+        "missing_rate": 0.031202824575798586,
+        "planned_transformation": "log",
+        "shift_for_transformation": 1e-06,
+        "skewness": 32.629179337968004
+      }
+    }
+  },
+  "freeze": {
+    "created_at": "2025-12-17T19:48:31.974455+00:00",
+    "spec_hash_md5": "4510e26a43f9a028fb2aa5aa8c65c29d",
+    "target_hash_md5": "2cffb60f71c9c857a47da555b72333dd"
+  },
+  "numerical_strategy_rules": {
+    "skew_threshold": 1.0
+  },
+  "numerical_transform_rules": {
+    "log": {
+      "applies_to": "x + shift_for_transformation",
+      "clip_min": 0.0,
+      "function": "log1p"
+    }
+  },
+  "output": {
+    "feature_ordering": "stable",
+    "sort_columns": true
+  },
+  "preserve_original_numerical": true,
+  "source": {
+    "dataset": "eda_cleaned.parquet",
+    "eda_summary": "eda_summary.json",
+    "schema": "eda_cleaned_schema.json"
+  },
+  "target": {
+    "dtype": "int8",
+    "missing_allowed": false,
+    "name": "default",
+    "positive_rate": 0.1310593224854278,
+    "source": "eda_cleaned.parquet",
+    "unique_values": [
+      0,
+      1
+    ]
+  },
+  "validation": {
+    "families": {
+      "categorical_count": 9,
+      "datetime_count": 1,
+      "numerical_count": 67,
+      "remaining_feature_count_after_exclusions": 77
+    },
+    "high_cardinality_categoricals": [],
+    "numeric_columns_low_numeric_parse_rate": [
+      "annual_inc_joint",
+      "dti_joint",
+      "open_acc_6m",
+      "open_act_il",
+      "open_il_12m",
+      "open_il_24m",
+      "total_bal_il",
+      "il_util",
+      "open_rv_12m",
+      "open_rv_24m",
+      "max_bal_bc",
+      "all_util",
+      "inq_fi",
+      "total_cu_tl",
+      "mo_sin_old_il_acct",
+      "num_tl_120dpd_2m",
+      "revol_bal_joint",
+      "sec_app_fico_range_low",
+      "sec_app_fico_range_high",
+      "sec_app_mort_acc",
+      "sec_app_open_acc",
+      "sec_app_open_act_il",
+      "sec_app_num_rev_accts",
+      "sec_app_chargeoff_within_12_mths"
+    ],
+    "overlaps": {
+      "cat_dt": [],
+      "num_cat": [],
+      "num_dt": []
+    }
+  },
+  "version": "v1"
+}

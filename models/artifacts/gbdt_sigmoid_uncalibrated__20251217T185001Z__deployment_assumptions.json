@@ -1,0 +1,11 @@
+{
+  "input_schema": "serving_schema.json",
+  "feature_ordering": "must match schema order",
+  "anchor_time": "issue_d",
+  "prediction": "PD at origination",
+  "notes": [
+    "Caller must provide all required features.",
+    "Categoricals should use training-time coding; unknown categories handled by OHE(ignore).",
+    "Datetime features were excluded from X (if drop_datetime_from_X=True)."
+  ]
+}
