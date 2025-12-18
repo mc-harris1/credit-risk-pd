@@ -57,6 +57,14 @@ jobs:
         run: |
           uv run python tests/generate_synthetic_data.py
 
+      - name: Preprocess data
+        run: |
+          uv run python -m src.data.preprocess
+
+      - name: Build engineered features
+        run: |
+          uv run python -m src.features.build_features
+
       - name: Tune hyperparameters
         run: |
           uv run python -m src.models.tune
