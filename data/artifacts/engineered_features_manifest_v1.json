@@ -1,0 +1,44 @@
+{
+  "column_roles_path": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/artifacts/column_roles_v1.json",
+  "column_roles_path_rel": "artifacts/column_roles_v1.json",
+  "created_at": "2025-12-18T22:53:50.333981+00:00",
+  "created_cols_sample": [
+    "loan_amnt",
+    "annual_inc",
+    "int_rate",
+    "dti",
+    "loan_status",
+    "loan_to_income"
+  ],
+  "date_col": "issue_d",
+  "feature_list_md5": "2a27d36ad09ba8242fef9063b489c4d6",
+  "feature_spec_path": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/artifacts/feature_spec_v1.json",
+  "feature_spec_path_rel": "artifacts/feature_spec_v1.json",
+  "features_path": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/processed/engineered_features_v1.parquet",
+  "features_path_rel": "processed/engineered_features_v1.parquet",
+  "fitted_encoder_summaries": {
+    "frequency": {},
+    "one_hot": {}
+  },
+  "id_cols": [
+    "loan_id"
+  ],
+  "input_path": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/interim/loans_cleaned.parquet",
+  "input_path_rel": "interim/loans_cleaned.parquet",
+  "manifest_version": "engineered_features_manifest_v1",
+  "n_cols": 8,
+  "n_rows": 1370163,
+  "output_head_md5": "d09bbf340e0cf412ad35ed806716cebf",
+  "output_path": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/processed/engineered_features_v1.parquet",
+  "output_path_rel": "processed/engineered_features_v1.parquet",
+  "output_schema_md5": "dad40124be4d5b7d2a531a6cd75876af",
+  "split": {
+    "cutoff_date": null,
+    "date_col": "issue_d",
+    "strategy": "time_based",
+    "train_fraction": 0.8
+  },
+  "target_col": "default",
+  "target_definition_path": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/artifacts/target_definition_v1.json",
+  "target_definition_path_rel": "artifacts/target_definition_v1.json"
+}

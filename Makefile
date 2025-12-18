@@ -20,6 +20,7 @@ help:
 	@echo	"  make features    - Run feature engineering"
 	@echo 	"  make tune	    - Run hyperparameter tuning"
 	@echo	"  make train       - Run model training"
+	@echo	"  make validate    - Run pipeline validation"
 	@echo	"  make evaluate    - Run model evaluation"
 	@echo	"  make monitor     - Run model monitoring"
 	@echo	"  make pipeline    - Run full ML pipeline (data-kaggle, preprocess, features, tune, train, evaluate, monitor)"
@@ -83,6 +84,10 @@ monitor:
 
 .PHONY: pipeline
 pipeline: data-kaggle preprocess features tune train evaluate monitor
+
+.PHONY: validate
+validate:
+	uv run python -m src.validate_pipeline
 
 .PHONY: explain
 explain:

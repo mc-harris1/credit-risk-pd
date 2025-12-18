@@ -1,0 +1,19 @@
+{
+  "accepted_source_file": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/raw/accepted_2007_to_2018Q4.csv",
+  "artifacts": {
+    "column_roles_v1": "data/artifacts/column_roles_v1.json",
+    "missingness_profile_v1": "data/artifacts/missingness_profile_v1.json",
+    "schema_raw_accepted_v1": "data/artifacts/schema_raw_accepted_v1.json",
+    "target_definition_v1": "data/artifacts/target_definition_v1.json"
+  },
+  "next_steps": [
+    "src/data/preprocess.py should read eda_summary.json, then load target_definition_v1 + column_roles_v1 to create data/interim/loans_cleaned.parquet.",
+    "src/features/build_features.py should operate on data/interim/loans_cleaned.parquet and emit model-ready tables to data/processed/."
+  ],
+  "principles": [
+    "EDA exports contracts; it does not write cleaned parquet outputs.",
+    "Ambiguous columns are excluded by default (conservative) to reduce leakage risk.",
+    "Columns may be dropped for ambiguity/leakage risk, not missingness alone.",
+    "Unmapped loan_status values are excluded (censoring) to avoid maturity bias."
+  ]
+}

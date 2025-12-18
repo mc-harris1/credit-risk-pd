@@ -5,287 +5,288 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Tuple
+from typing import Any, Dict, Optional
 
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
-
-from src.config import (
-    METADATA_DIR,
-    MODELS_BUNDLES_DIR,
-    MODELS_DIR,
-    PROCESSED_DATA_DIR,
-    RANDOM_STATE,
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    average_precision_score,
+    brier_score_loss,
+    confusion_matrix,
+    precision_recall_fscore_support,
+    roc_auc_score,
 )
-from src.features.transforms import add_domain_features
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-FEATURES_FILE = "loans_features.parquet"
-TARGET_COL = "default"
-ANCHOR_COL = "issue_d"  # origination
-HORIZON_MONTHS = 12
-FRAMING = "PIT"
-MODEL_FILE = "pd_model_xgb.pkl"  # legacy artifact name expected by tests
+from src.config import ARTIFACTS_DIR, RANDOM_STATE
+from src.models.datasets import DataContract, load_data_contract, prepare_time_split_xy
 
-
-def make_model_version() -> str:
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return f"pd_hgb_{FRAMING.lower()}_{HORIZON_MONTHS}m__{ts}"
+LOGGER = logging.getLogger(__name__)
 
 
-def load_feature_data() -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
-    input_path = Path(PROCESSED_DATA_DIR) / FEATURES_FILE
-    df = pd.read_parquet(input_path)
-
-    if TARGET_COL not in df.columns:
-        raise KeyError(f"Expected target column '{TARGET_COL}' in features data")
-    if ANCHOR_COL not in df.columns:
-        raise KeyError(f"Expected anchor column '{ANCHOR_COL}' in features data")
-
-    # Ensure datetime type with explicit format (e.g., "Dec-2015")
-    df[ANCHOR_COL] = pd.to_datetime(df[ANCHOR_COL], format="%b-%Y")
-
-    y = df[TARGET_COL].astype(int)
-    dates = df[ANCHOR_COL]
-    X = df.drop(columns=[TARGET_COL])
-
-    # If present, drop label-ish columns not used at origination
-    if "loan_status" in X.columns:
-        X = X.drop(columns=["loan_status"])
-
-    return X, y, dates
+# -----------------------------
+# Config
+# -----------------------------
 
 
-def time_based_split_3way(
-    X: pd.DataFrame,
-    y: pd.Series,
-    dates: pd.Series,
-    train_frac: float = 0.70,
-    val_frac: float = 0.15,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series, pd.Series, dict]:
-    if not (0 < train_frac < 1) or not (0 < val_frac < 1) or train_frac + val_frac >= 1:
-        raise ValueError("train_frac and val_frac must be in (0,1) and sum to < 1.0")
+@dataclass(frozen=True)
+class TrainConfig:
+    # Manifest-first input
+    feature_manifest_path: Optional[Path] = None
 
-    order = dates.sort_values().index
-    X = X.loc[order].copy()
-    y = y.loc[order].copy()
-    dates = dates.loc[order].copy()
+    # Fallbacks (only used if manifest not provided)
+    features_path: Optional[Path] = None
+    target_col: str = "default"
+    date_col: str = "issue_d"
+    train_fraction: float = 0.80
 
-    n = len(dates)
-    n_train = int(n * train_frac)
-    n_val = int(n * val_frac)
+    # Output
+    out_dir: Path = (
+        Path(ARTIFACTS_DIR) / "runs" / "train" / datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
 
-    train_idx = dates.index[:n_train]
-    val_idx = dates.index[n_train : n_train + n_val]
-    test_idx = dates.index[n_train + n_val :]
+    # Model params
+    C: float = 1.0
+    max_iter: int = 2000
+    class_weight: Optional[str] = "balanced"
+    random_state: int = RANDOM_STATE
 
-    X_train, y_train = X.loc[train_idx], y.loc[train_idx]
-    X_val, y_val = X.loc[val_idx], y.loc[val_idx]
-    X_test, y_test = X.loc[test_idx], y.loc[test_idx]
-
-    split_meta = {
-        "type": "time_fraction_sorted_by_anchor",
-        "anchor_col": ANCHOR_COL,
-        "train_frac": train_frac,
-        "val_frac": val_frac,
-        "train_start": str(dates.loc[train_idx].min().date()),
-        "train_end": str(dates.loc[train_idx].max().date()),
-        "val_start": str(dates.loc[val_idx].min().date()),
-        "val_end": str(dates.loc[val_idx].max().date()),
-        "test_start": str(dates.loc[test_idx].min().date()),
-        "test_end": str(dates.loc[test_idx].max().date()),
-        "train_default_rate": float(y_train.mean()),
-        "val_default_rate": float(y_val.mean()),
-        "test_default_rate": float(y_test.mean()),
-        "train_n": int(len(train_idx)),
-        "val_n": int(len(val_idx)),
-        "test_n": int(len(test_idx)),
-    }
-
-    return X_train, X_val, X_test, y_train, y_val, y_test, split_meta
+    log_level: str = "INFO"
 
 
-def time_based_split(
-    X: pd.DataFrame,
-    y: pd.Series,
-    dates: pd.Series,
-    train_fraction: float = 0.8,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    """
-    Backward-compatible 2-way time-based split used by legacy modules/tests.
-    Splits by sorted anchor dates into train and test partitions.
-    """
-    order = dates.sort_values().index
-    X = X.loc[order].copy()
-    y = y.loc[order].copy()
-    dates = dates.loc[order].copy()
-
-    split_idx = int(len(dates) * train_fraction)
-    train_idx = dates.index[:split_idx]
-    test_idx = dates.index[split_idx:]
-
-    X_train, X_test = X.loc[train_idx], X.loc[test_idx]
-    y_train, y_test = y.loc[train_idx], y.loc[test_idx]
-    return X_train, X_test, y_train, y_test
+# -----------------------------
+# Logging / IO
+# -----------------------------
 
 
-def build_pipeline(X_train: pd.DataFrame) -> tuple[Pipeline, dict]:
-    # Infer types AFTER domain features
+def setup_logging(level: str) -> None:
+    logging.basicConfig(
+        level=getattr(logging, level.upper(), logging.INFO),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+
+
+def ensure_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def write_json(path: Path, payload: Dict[str, Any]) -> None:
+    ensure_dir(path.parent)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+
+
+# -----------------------------
+# Pipeline / model
+# -----------------------------
+
+
+def build_preprocessor(X_train: pd.DataFrame) -> ColumnTransformer:
     cat_cols = X_train.select_dtypes(include=["object", "category"]).columns.tolist()
     num_cols = X_train.select_dtypes(include=["number", "bool"]).columns.tolist()
 
-    preprocessor = ColumnTransformer(
-        transformers=[
-            (
-                "num",
-                Pipeline(
-                    steps=[
-                        ("imputer", SimpleImputer(strategy="median")),
-                    ]
-                ),
-                num_cols,
-            ),
-            (
-                "cat",
-                Pipeline(
-                    steps=[
-                        ("imputer", SimpleImputer(strategy="most_frequent")),
-                        ("ohe", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-                    ]
-                ),
-                cat_cols,
-            ),
-        ],
-        remainder="drop",
-    )
-
-    clf = HistGradientBoostingClassifier(
-        random_state=RANDOM_STATE,
-        max_depth=6,
-        learning_rate=0.05,
-        max_iter=300,
-        min_samples_leaf=30,
-        l2_regularization=0.0,
-    )
-
-    pipeline = Pipeline(
+    numeric_pipe = Pipeline(
         steps=[
-            ("preprocess", preprocessor),
-            ("model", clf),
+            ("impute", SimpleImputer(strategy="median")),
+            ("scale", StandardScaler(with_mean=True, with_std=True)),
+        ]
+    )
+    categorical_pipe = Pipeline(
+        steps=[
+            ("impute", SimpleImputer(strategy="most_frequent")),
+            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
         ]
     )
 
-    feature_spec = {
-        "feature_cols": list(X_train.columns),  # ordering BEFORE preprocess/OHE
-        "numeric_cols": num_cols,
-        "categorical_cols": cat_cols,
-        "dropped_cols": [ANCHOR_COL, TARGET_COL, "loan_status"],
-        "anchor_col": ANCHOR_COL,
-        "target_col": TARGET_COL,
-        "framing": FRAMING,
-        "horizon_months": HORIZON_MONTHS,
-    }
-    return pipeline, feature_spec
+    return ColumnTransformer(
+        transformers=[("num", numeric_pipe, num_cols), ("cat", categorical_pipe, cat_cols)],
+        remainder="drop",
+    )
 
 
-def save_bundle(model_dir: Path, pipeline: Pipeline, metadata: dict, feature_spec: dict) -> None:
-    model_dir.mkdir(parents=True, exist_ok=True)
-    joblib.dump(pipeline, model_dir / "model.joblib")
-    (model_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
-    (model_dir / "feature_spec.json").write_text(json.dumps(feature_spec, indent=2))
+def build_pipeline(cfg: TrainConfig, X_train: pd.DataFrame) -> Pipeline:
+    pre = build_preprocessor(X_train)
+    model = LogisticRegression(
+        C=cfg.C,
+        max_iter=cfg.max_iter,
+        class_weight=cfg.class_weight,
+        solver="lbfgs",
+        n_jobs=None,
+    )
+    return Pipeline(steps=[("preprocess", pre), ("model", model)])
 
 
-def train_model() -> None:
-    X, y, dates = load_feature_data()
+# -----------------------------
+# Metrics
+# -----------------------------
 
-    # 3-way time split
-    X_train, X_val, X_test, y_train, y_val, y_test, split_meta = time_based_split_3way(X, y, dates)
 
-    # Domain features BEFORE fitting
-    X_train = add_domain_features(X_train)
-    X_val = add_domain_features(X_val)
-    X_test = add_domain_features(X_test)
+def evaluate_binary(
+    y_true: np.ndarray, y_prob: np.ndarray, threshold: float = 0.5
+) -> Dict[str, Any]:
+    y_pred = (y_prob >= threshold).astype(int)
 
-    # Drop raw date column from modeling features
-    for d in (X_train, X_val, X_test):
-        if ANCHOR_COL in d.columns:
-            d.drop(columns=[ANCHOR_COL], inplace=True)
+    roc = roc_auc_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else float("nan")
+    pr = average_precision_score(y_true, y_prob) if len(np.unique(y_true)) > 1 else float("nan")
+    brier = brier_score_loss(y_true, y_prob)
 
-    pipeline, feature_spec = build_pipeline(X_train)
+    prec, rec, f1, _ = precision_recall_fscore_support(
+        y_true, y_pred, average="binary", zero_division=0
+    )
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
 
-    pipeline.fit(X_train, y_train)
-    print(f"Training complete on {len(X_train)} samples.")
-
-    model_version = make_model_version()
-    bundle_dir = Path(MODELS_BUNDLES_DIR) / model_version
-
-    timestamp = datetime.now(timezone.utc).isoformat()
-
-    metadata = {
-        "model_version": model_version,
-        "trained_at_utc": timestamp,
-        "model_type": "HistGradientBoostingClassifier",
-        "random_state": RANDOM_STATE,
-        "selection": {
-            "selected": True,
-            "reason": "Untuned HGB selected for stability under forward validation; tuning degraded validation metrics.",
-        },
-        "split_meta": split_meta,
-        "feature_spec": {
-            "n_features_pre_preprocess": int(X_train.shape[1]),
-        },
+    return {
+        "threshold": float(threshold),
+        "roc_auc": float(roc),
+        "pr_auc": float(pr),
+        "brier": float(brier),
+        "precision": float(prec),
+        "recall": float(rec),
+        "f1": float(f1),
+        "confusion_matrix": {"tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp)},
     }
 
-    save_bundle(bundle_dir, pipeline, metadata, feature_spec)
 
-    print(f"Saved bundle to {bundle_dir}")
-    print("Bundle contents: model.joblib, metadata.json, feature_spec.json")
+# -----------------------------
+# Orchestration
+# -----------------------------
 
-    # --- Legacy artifacts for backward compatibility with tests ---
-    try:
-        legacy_models_dir = Path(MODELS_DIR)
-        legacy_metadata_dir = Path(METADATA_DIR)
-        legacy_models_dir.mkdir(parents=True, exist_ok=True)
-        legacy_metadata_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save pipeline under legacy single-artifact name
-        joblib.dump(pipeline, legacy_models_dir / MODEL_FILE)
+def resolve_contract(cfg: TrainConfig) -> DataContract:
+    return load_data_contract(
+        feature_manifest_path=cfg.feature_manifest_path,
+        features_path=cfg.features_path,
+        target_col=cfg.target_col,
+        date_col=cfg.date_col,
+        train_fraction=cfg.train_fraction,
+    )
 
-        # Compute legacy 80/20 split info for metadata schema
-        X_train80, X_test80, y_train80, y_test80 = time_based_split(X, y, dates, train_fraction=0.8)
-        split_info = {
-            "type": "time_based_fraction",
-            "fraction_train": 0.8,
-            "date_column": ANCHOR_COL,
-            "train_start": str(dates.loc[X_train80.index].min().date()),
-            "train_end": str(dates.loc[X_train80.index].max().date()),
-            "test_start": str(dates.loc[X_test80.index].min().date()),
-            "test_end": str(dates.loc[X_test80.index].max().date()),
-        }
 
-        legacy_metadata = {
-            "model_file": MODEL_FILE,
-            # Keep legacy value expected by tests
-            "model_type": "XGBClassifier",
-            "train_samples": int(len(X_train80)),
-            "test_samples": int(len(X_test80)),
-            "feature_names": feature_spec["feature_cols"],
-            "training_split": split_info,
-        }
+def train(cfg: TrainConfig) -> Dict[str, Any]:
+    ensure_dir(cfg.out_dir)
 
-        (legacy_metadata_dir / "pd_model_metadata.json").write_text(
-            json.dumps(legacy_metadata, indent=2)
-        )
-    except Exception:
-        # Do not fail training if legacy artifact writing encounters an issue.
-        pass
+    contract = resolve_contract(cfg)
+
+    # One call: load -> time split -> domain features -> drop date col
+    X_train, X_val, y_train, y_val, contract = prepare_time_split_xy(contract)
+
+    pipe = build_pipeline(cfg, X_train)
+    LOGGER.info("Fitting LogisticRegression...")
+    pipe.fit(X_train, y_train)
+
+    p_train = pipe.predict_proba(X_train)[:, 1]
+    p_val = pipe.predict_proba(X_val)[:, 1]
+
+    train_metrics = evaluate_binary(y_train.to_numpy(), p_train, threshold=0.5)
+    val_metrics = evaluate_binary(y_val.to_numpy(), p_val, threshold=0.5)
+
+    model_path = cfg.out_dir / "model.joblib"
+    metrics_path = cfg.out_dir / "metrics.json"
+    manifest_path = cfg.out_dir / "manifest.json"
+
+    joblib.dump(pipe, model_path)
+
+    payload = {
+        "run_utc": datetime.now(timezone.utc).isoformat(),
+        "data_contract": {
+            "feature_manifest_path": str(contract.manifest_path)
+            if contract.manifest_path
+            else None,
+            "features_path": str(contract.features_path),
+            "target_col": contract.target_col,
+            "date_col": contract.date_col,
+            "split": {
+                "strategy": contract.split_strategy,
+                "train_fraction": float(contract.train_fraction),
+                "cutoff_date": contract.cutoff_date,
+            },
+        },
+        "data": {
+            "n_train": int(len(X_train)),
+            "n_val": int(len(X_val)),
+            "positive_rate_train": float(y_train.mean()),
+            "positive_rate_val": float(y_val.mean()),
+        },
+        "model": {
+            "type": "LogisticRegression",
+            "params": {
+                "C": cfg.C,
+                "max_iter": cfg.max_iter,
+                "class_weight": cfg.class_weight,
+                "random_state": cfg.random_state,
+            },
+        },
+        "metrics": {"train": train_metrics, "val": val_metrics},
+        "artifacts": {"model_path": str(model_path), "metrics_path": str(metrics_path)},
+        "linked_manifest_preview": {
+            "feature_spec_path": str(contract.feature_spec_path)
+            if contract.feature_spec_path
+            else None,
+            "target_definition_path": str(contract.target_definition_path)
+            if contract.target_definition_path
+            else None,
+            "column_roles_path": str(contract.column_roles_path)
+            if contract.column_roles_path
+            else None,
+        },
+    }
+
+    write_json(metrics_path, payload)
+    write_json(
+        manifest_path,
+        {
+            "model": str(model_path),
+            "metrics": str(metrics_path),
+            "feature_manifest_path": str(contract.manifest_path)
+            if contract.manifest_path
+            else None,
+            "features_path": str(contract.features_path),
+        },
+    )
+
+    LOGGER.info("Saved model: %s", model_path)
+    LOGGER.info("Saved metrics: %s", metrics_path)
+    return payload
+
+
+# -----------------------------
+# CLI
+# -----------------------------
+
+
+def _env_path(name: str) -> Optional[Path]:
+    v = os.getenv(name)
+    return Path(v) if v else None
+
+
+def main() -> None:
+    cfg = TrainConfig(
+        feature_manifest_path=_env_path("FEATURE_MANIFEST_PATH"),
+        features_path=_env_path("FEATURES_PATH"),
+        target_col=os.getenv("TARGET_COL", "default"),
+        date_col=os.getenv("DATE_COL", "issue_d"),
+        train_fraction=float(os.getenv("TRAIN_FRACTION", "0.8")),
+        out_dir=_env_path("TRAIN_OUT_DIR") or TrainConfig().out_dir,
+        C=float(os.getenv("LOGREG_C", "1.0")),
+        max_iter=int(os.getenv("MAX_ITER", "2000")),
+        class_weight=os.getenv("CLASS_WEIGHT", "balanced"),
+        random_state=int(os.getenv("RANDOM_STATE", str(RANDOM_STATE))),
+        log_level=os.getenv("LOG_LEVEL", "INFO"),
+    )
+
+    setup_logging(cfg.log_level)
+    train(cfg)
 
 
 if __name__ == "__main__":
-    train_model()
+    main()

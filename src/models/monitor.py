@@ -26,8 +26,11 @@ import numpy as np
 import pandas as pd
 
 from src.config import METADATA_DIR
-from src.models.train import (
-    load_feature_data,
+from src.models.datasets import (
+    DataContract,
+    apply_domain_features_and_drop_date,
+    load_data_contract,
+    load_engineered_features,
     time_based_split,
 )
 
@@ -114,6 +117,12 @@ def _numeric_feature_summary(
 # ---------------------------------------------------------------------------
 
 
+def load_feature_data(contract: DataContract | None = None):
+    """Compatibility shim: load engineered features + target + dates."""
+    contract = contract or load_data_contract()
+    return load_engineered_features(contract)
+
+
 def _prepare_baseline_and_recent() -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     Load feature data and split into baseline (train) and recent (test)
@@ -122,10 +131,9 @@ def _prepare_baseline_and_recent() -> Tuple[pd.DataFrame, pd.DataFrame, pd.Serie
     X, y, dates = load_feature_data()
     X_train, X_recent, y_train, y_recent = time_based_split(X, y, dates, train_fraction=0.8)
 
-    # Drop date column if present
-    if "issue_d" in X_train.columns:
-        X_train = X_train.drop(columns=["issue_d"])
-        X_recent = X_recent.drop(columns=["issue_d"])
+    # Apply domain features + drop date to match training pipeline
+    X_train = apply_domain_features_and_drop_date(X_train, date_col="issue_d")
+    X_recent = apply_domain_features_and_drop_date(X_recent, date_col="issue_d")
 
     return X_train, X_recent, y_train, y_recent
 

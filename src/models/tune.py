@@ -2,10 +2,16 @@
 # Copyright (c) 2025 Mark Harris
 # Licensed under the MIT License. See LICENSE file in the project root.
 
+from __future__ import annotations
+
 import json
+import logging
 import os
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from itertools import product
-from typing import Dict, List, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -16,16 +22,75 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from xgboost import XGBClassifier
 
 from src.config import METADATA_DIR, RANDOM_STATE
-from src.features.transforms import add_domain_features
-from src.models.train import (
-    FEATURES_FILE,
-    load_feature_data,
+from src.models.datasets import (
+    apply_domain_features_and_drop_date,
+    load_data_contract,
+    load_engineered_features,
     time_based_split,
 )
 
+LOGGER = logging.getLogger(__name__)
 
-def hyperparam_grid() -> Dict[str, List]:
-    """Define a small, sensible hyperparameter grid for XGBoost."""
+
+# -----------------------------
+# Config
+# -----------------------------
+
+
+@dataclass(frozen=True)
+class TuneConfig:
+    # Data contract
+    feature_manifest_path: Optional[Path] = None
+    features_path: Optional[Path] = None
+    target_col: str = "default"
+    date_col: str = "issue_d"
+    train_fraction: float = 0.80
+
+    # Output
+    out_dir: Path = Path(METADATA_DIR) / "tuning" / datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Reproducibility
+    random_state: int = RANDOM_STATE
+
+    # xgb fixed bits
+    objective: str = "binary:logistic"
+    eval_metric: str = "logloss"
+    tree_method: str = "hist"
+    n_jobs: int = -1
+
+    # logging
+    log_level: str = "INFO"
+
+
+# -----------------------------
+# IO
+# -----------------------------
+
+
+def setup_logging(level: str) -> None:
+    logging.basicConfig(
+        level=getattr(logging, level.upper(), logging.INFO),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+
+
+def ensure_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def write_json(path: Path, payload: Dict[str, Any]) -> None:
+    ensure_dir(path.parent)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+
+
+# -----------------------------
+# Search space + data
+# -----------------------------
+
+
+def hyperparam_grid() -> Dict[str, List[Any]]:
+    """Small, sensible hyperparameter grid for XGBoost."""
     return {
         "n_estimators": [200, 400],
         "max_depth": [4, 6],
@@ -35,103 +100,166 @@ def hyperparam_grid() -> Dict[str, List]:
     }
 
 
-def prepare_data() -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    """Load features and return time-based train/validation sets."""
-    X, y, dates = load_feature_data()
-    X_train, X_val, y_train, y_val = time_based_split(X, y, dates, train_fraction=0.8)
+def prepare_data(cfg: TuneConfig) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
+    """Load engineered features and split/time-order consistently with train/eval."""
 
-    # Apply domain-specific feature engineering once here
-    X_train = add_domain_features(X_train)
-    X_val = add_domain_features(X_val)
+    contract = load_data_contract(
+        feature_manifest_path=cfg.feature_manifest_path,
+        features_path=cfg.features_path,
+        target_col=cfg.target_col,
+        date_col=cfg.date_col,
+        train_fraction=cfg.train_fraction,
+    )
+    X, y, dates = load_engineered_features(contract)
+    X_train, X_val, y_train, y_val = time_based_split(
+        X, y, dates, train_fraction=cfg.train_fraction
+    )
 
-    # Drop the date column if still present
-    if "issue_d" in X_train.columns:
-        X_train = X_train.drop(columns=["issue_d"])
-        X_val = X_val.drop(columns=["issue_d"])
+    X_train = apply_domain_features_and_drop_date(X_train, date_col=contract.date_col)
+    X_val = apply_domain_features_and_drop_date(X_val, date_col=contract.date_col)
 
     return X_train, X_val, y_train, y_val
 
 
 def build_preprocessor(X_train: pd.DataFrame) -> ColumnTransformer:
-    """Build the preprocessing ColumnTransformer based on training data schema."""
+    """Build preprocessing based on training schema."""
     cat_cols = X_train.select_dtypes(include=["object", "category"]).columns.tolist()
     num_cols = X_train.select_dtypes(include=["number", "bool"]).columns.tolist()
 
-    preprocessor = ColumnTransformer(
+    return ColumnTransformer(
         transformers=[
             ("num", StandardScaler(), num_cols),
             ("cat", OneHotEncoder(handle_unknown="ignore"), cat_cols),
+        ],
+        remainder="drop",
+    )
+
+
+def build_pipeline(
+    preprocessor: ColumnTransformer,
+    cfg: TuneConfig,
+    params: Dict[str, Any],
+) -> Pipeline:
+    clf = XGBClassifier(
+        objective=cfg.objective,
+        eval_metric=cfg.eval_metric,
+        random_state=cfg.random_state,
+        n_jobs=cfg.n_jobs,
+        tree_method=cfg.tree_method,
+        **params,
+    )
+
+    return Pipeline(
+        steps=[
+            ("preprocess", preprocessor),
+            ("model", clf),
         ]
     )
-    return preprocessor
 
 
-def tune_model() -> None:
-    """
-    Run a simple grid search over XGBoost hyperparameters using a time-based split.
+# -----------------------------
+# Tuning core
+# -----------------------------
 
-    Results:
-    - models/metadata/hparam_search_results.json   (list of {params, roc_auc})
-    - models/metadata/best_params.json             ({"best_params": {...}, "best_roc_auc": ...})
-    """
-    print(f"Loading features from {FEATURES_FILE} for tuning...")
-    X_train, X_val, y_train, y_val = prepare_data()
-    preprocessor = build_preprocessor(X_train)
 
-    grid = hyperparam_grid()
+def run_grid_search(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    X_val: pd.DataFrame,
+    y_val: pd.Series,
+    cfg: TuneConfig,
+    grid: Dict[str, List[Any]],
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     keys = list(grid.keys())
 
-    results = []
+    results: List[Dict[str, Any]] = []
     best_score = -np.inf
-    best_params = None
+    best_params: Dict[str, Any] = {}
 
-    print("Starting hyperparameter search...")
+    LOGGER.info(
+        "Starting hyperparameter search (%d combos)...",
+        int(np.prod([len(v) for v in grid.values()])),
+    )
     for values in product(*grid.values()):
         params = dict(zip(keys, values, strict=True))
 
-        clf = XGBClassifier(
-            objective="binary:logistic",
-            eval_metric="logloss",
-            random_state=RANDOM_STATE,
-            n_jobs=-1,
-            tree_method="hist",
-            **params,
-        )
-
-        pipe = Pipeline(
-            steps=[
-                ("preprocess", preprocessor),
-                ("model", clf),
-            ]
-        )
+        pipe = build_pipeline(build_preprocessor(X_train), cfg, params)
 
         pipe.fit(X_train, y_train)
         y_proba = pipe.predict_proba(X_val)[:, 1]
-        auc = roc_auc_score(y_val, y_proba)
+        auc = float(roc_auc_score(y_val, y_proba))
 
-        result = {"params": params, "roc_auc": float(auc)}
-        results.append(result)
-        print(f"Params: {params} -> ROC-AUC: {auc:.4f}")
+        results.append({"params": params, "roc_auc": auc})
+        LOGGER.info("Params: %s -> ROC-AUC: %.4f", params, auc)
 
         if auc > best_score:
             best_score = auc
             best_params = params
 
-    os.makedirs(METADATA_DIR, exist_ok=True)
+    best = {
+        "model_type": "xgb",
+        "params": best_params,
+        "metric": "roc_auc",
+        "best_score": float(best_score),
+    }
+    return results, best
 
-    search_path = os.path.join(METADATA_DIR, "hparam_search_results.json")
-    with open(search_path, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
-    print(f"Saved hyperparameter search results to {search_path}")
 
-    best_path = os.path.join(METADATA_DIR, "best_params.json")
-    payload = {"best_params": best_params, "best_roc_auc": float(best_score)}
-    with open(best_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
-    print(f"Saved best_params.json to {best_path}")
-    print(f"Best params: {best_params}")
-    print(f"Best ROC-AUC: {best_score:.4f}")
+def write_tuning_artifacts(
+    cfg: TuneConfig, results: List[Dict[str, Any]], best: Dict[str, Any]
+) -> None:
+    ensure_dir(cfg.out_dir)
+
+    results_path = cfg.out_dir / "cv_results.json"
+    best_path = cfg.out_dir / "best_params.json"
+    manifest_path = cfg.out_dir / "manifest.json"
+
+    write_json(results_path, {"results": results})
+    write_json(best_path, best)
+
+    write_json(
+        manifest_path,
+        {
+            "run_utc": datetime.now(timezone.utc).isoformat(),
+            "out_dir": str(cfg.out_dir),
+            "results": str(results_path),
+            "best_params": str(best_path),
+        },
+    )
+
+    LOGGER.info("Saved cv results: %s", results_path)
+    LOGGER.info("Saved best params: %s", best_path)
+    LOGGER.info("Saved manifest: %s", manifest_path)
+
+
+def _env_path(name: str) -> Optional[Path]:
+    v = os.getenv(name)
+    return Path(v) if v else None
+
+
+def tune() -> Dict[str, Any]:
+    cfg = TuneConfig(
+        feature_manifest_path=_env_path("FEATURE_MANIFEST_PATH"),
+        features_path=_env_path("FEATURES_PATH"),
+        target_col=os.getenv("TARGET_COL", "default"),
+        date_col=os.getenv("DATE_COL", "issue_d"),
+        train_fraction=float(os.getenv("TRAIN_FRACTION", "0.8")),
+        out_dir=_env_path("TUNE_OUT_DIR") or TuneConfig().out_dir,
+        random_state=int(os.getenv("RANDOM_STATE", str(RANDOM_STATE))),
+        log_level=os.getenv("LOG_LEVEL", "INFO"),
+    )
+    setup_logging(cfg.log_level)
+
+    X_train, X_val, y_train, y_val = prepare_data(cfg)
+    grid = hyperparam_grid()
+
+    results, best = run_grid_search(X_train, y_train, X_val, y_val, cfg, grid)
+    write_tuning_artifacts(cfg, results, best)
+
+    LOGGER.info("Best params: %s", best["params"])
+    LOGGER.info("Best ROC-AUC: %.4f", best["best_score"])
+    return best
 
 
 if __name__ == "__main__":
-    tune_model()
+    tune()

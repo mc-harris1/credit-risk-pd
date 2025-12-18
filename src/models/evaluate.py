@@ -1,12 +1,19 @@
 # src/models/evaluate.py
+# Copyright (c) 2025 Mark Harris
+# Licensed under the MIT License. See LICENSE file in the project root.
+
+from __future__ import annotations
+
 import json
+import logging
 import os
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Tuple
+from typing import Any, Dict, Optional
 
 import joblib
 import matplotlib.pyplot as plt
-import pandas as pd
 from sklearn.calibration import calibration_curve
 from sklearn.metrics import (
     average_precision_score,
@@ -17,145 +24,248 @@ from sklearn.metrics import (
     roc_curve,
 )
 
-from src.config import METADATA_DIR, MODELS_DIR, PROCESSED_DATA_DIR
+from src.config import ARTIFACTS_DIR, RANDOM_STATE
+from src.models.datasets import DataContract, load_data_contract, prepare_time_split_xy
 
-FEATURES_FILE = "loans_features.parquet"
-MODEL_FILE = "pd_model_xgb.pkl"
-ORIGINATION_COL = "issue_d"  # keep in sync with train.py
-
-
-def load_feature_data() -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
-    """Load processed feature data and return X, y, and origination dates."""
-    input_path = os.path.join(PROCESSED_DATA_DIR, FEATURES_FILE)
-    df = pd.read_parquet(input_path)
-
-    if "loan_status" in df.columns:
-        df = df.drop(columns=["loan_status"])
-
-    if ORIGINATION_COL not in df.columns:
-        msg = f"Expected origination column '{ORIGINATION_COL}' in features data"
-        raise KeyError(msg)
-
-    df[ORIGINATION_COL] = pd.to_datetime(df[ORIGINATION_COL], format="%b-%Y")
-
-    y = df["default"]
-    dates = df[ORIGINATION_COL]
-    X = df.drop(columns=["default"])
-
-    return X, y, dates
+LOGGER = logging.getLogger(__name__)
 
 
-def time_based_split(
-    X: pd.DataFrame,
-    y: pd.Series,
-    dates: pd.Series,
-    train_fraction: float = 0.8,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    order = dates.sort_values().index
-    X = X.loc[order]
-    y = y.loc[order]
-    dates = dates.loc[order]
-
-    split_idx = int(len(dates) * train_fraction)
-    train_idx = dates.index[:split_idx]
-    test_idx = dates.index[split_idx:]
-
-    X_train, X_test = X.loc[train_idx].copy(), X.loc[test_idx].copy()
-    y_train, y_test = y.loc[train_idx], y.loc[test_idx]
-
-    if ORIGINATION_COL in X_train.columns:
-        X_train = X_train.drop(columns=[ORIGINATION_COL])
-        X_test = X_test.drop(columns=[ORIGINATION_COL])
-
-    return X_train, X_test, y_train, y_test
+# -----------------------------
+# Config
+# -----------------------------
 
 
-def evaluate_model() -> None:
-    """Evaluate the trained model on a time-based holdout and save metrics + plots."""
-    X, y, dates = load_feature_data()
+@dataclass(frozen=True)
+class EvalConfig:
+    # Manifest-first input
+    feature_manifest_path: Optional[Path] = None
 
-    _, X_test, _, y_test = time_based_split(X, y, dates, train_fraction=0.8)
+    # Fallbacks (only used if manifest not provided)
+    features_path: Optional[Path] = None
+    target_col: str = "default"
+    date_col: str = "issue_d"
+    train_fraction: float = 0.80
 
-    model_path = os.path.join(MODELS_DIR, MODEL_FILE)
-    if not os.path.exists(model_path):
-        msg = f"Model file not found at {model_path}. Train the model first."
-        raise FileNotFoundError(msg)
+    # Model input
+    train_run_dir: Optional[Path] = None
+    model_path: Optional[Path] = None
 
+    # Output
+    out_dir: Path = Path(ARTIFACTS_DIR) / "runs" / "eval" / datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    threshold: float = 0.50
+    calib_bins: int = 10
+    calib_strategy: str = "quantile"
+
+    log_level: str = "INFO"
+    random_state: int = RANDOM_STATE
+
+
+# -----------------------------
+# Logging / IO
+# -----------------------------
+
+
+def setup_logging(level: str) -> None:
+    logging.basicConfig(
+        level=getattr(logging, level.upper(), logging.INFO),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+
+
+def ensure_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def write_json(path: Path, payload: Dict[str, Any]) -> None:
+    ensure_dir(path.parent)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
+
+
+# -----------------------------
+# Model loading
+# -----------------------------
+
+
+def resolve_model_path(cfg: EvalConfig) -> Path:
+    if cfg.model_path:
+        return cfg.model_path
+    if cfg.train_run_dir:
+        candidate = cfg.train_run_dir / "model.joblib"
+        if candidate.exists():
+            return candidate
+        raise FileNotFoundError(f"model.joblib not found in train_run_dir: {cfg.train_run_dir}")
+    raise ValueError("Provide MODEL_PATH or TRAIN_RUN_DIR")
+
+
+# -----------------------------
+# Contract resolution
+# -----------------------------
+
+
+def resolve_contract(cfg: EvalConfig) -> DataContract:
+    return load_data_contract(
+        feature_manifest_path=cfg.feature_manifest_path,
+        features_path=cfg.features_path,
+        target_col=cfg.target_col,
+        date_col=cfg.date_col,
+        train_fraction=cfg.train_fraction,
+    )
+
+
+# -----------------------------
+# Evaluation
+# -----------------------------
+
+
+def evaluate(cfg: EvalConfig) -> Dict[str, Any]:
+    ensure_dir(cfg.out_dir)
+
+    contract = resolve_contract(cfg)
+    model_path = resolve_model_path(cfg)
     model = joblib.load(model_path)
 
-    y_proba = model.predict_proba(X_test)[:, 1]
-    y_pred = (y_proba >= 0.5).astype(int)
+    # One call: load -> time split -> domain features -> drop date col
+    _, X_test, _, y_test, contract = prepare_time_split_xy(contract)
 
-    # Core metrics
-    roc_auc = roc_auc_score(y_test, y_proba)
-    pr_auc = average_precision_score(y_test, y_proba)
-    brier = brier_score_loss(y_test, y_proba)
+    y_prob = model.predict_proba(X_test)[:, 1]
+    y_pred = (y_prob >= cfg.threshold).astype(int)
+
+    roc_auc = roc_auc_score(y_test, y_prob)
+    pr_auc = average_precision_score(y_test, y_prob)
+    brier = brier_score_loss(y_test, y_prob)
     tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
 
     metrics = {
+        "threshold": float(cfg.threshold),
         "roc_auc": float(roc_auc),
         "pr_auc": float(pr_auc),
-        "brier_score": float(brier),
-        "confusion_matrix": {
-            "tn": int(tn),
-            "fp": int(fp),
-            "fn": int(fn),
-            "tp": int(tp),
-        },
-        "threshold": 0.5,
+        "brier": float(brier),
+        "confusion_matrix": {"tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp)},
     }
 
-    os.makedirs(METADATA_DIR, exist_ok=True)
-    metrics_path = Path(METADATA_DIR) / "evaluation_metrics.json"
-    with open(metrics_path, "w", encoding="utf-8") as f:
-        json.dump(metrics, f, indent=2)
+    metrics_path = cfg.out_dir / "metrics.json"
+    write_json(
+        metrics_path,
+        {
+            "run_utc": datetime.now(timezone.utc).isoformat(),
+            "data_contract": {
+                "feature_manifest_path": str(contract.manifest_path)
+                if contract.manifest_path
+                else None,
+                "features_path": str(contract.features_path),
+                "target_col": contract.target_col,
+                "date_col": contract.date_col,
+                "split": {
+                    "strategy": contract.split_strategy,
+                    "train_fraction": float(contract.train_fraction),
+                    "cutoff_date": contract.cutoff_date,
+                },
+            },
+            "model": {
+                "model_path": str(model_path),
+                "train_run_dir": str(cfg.train_run_dir) if cfg.train_run_dir else None,
+            },
+            "metrics": metrics,
+            "linked_manifest_preview": {
+                "feature_spec_path": str(contract.feature_spec_path)
+                if contract.feature_spec_path
+                else None,
+                "target_definition_path": str(contract.target_definition_path)
+                if contract.target_definition_path
+                else None,
+                "column_roles_path": str(contract.column_roles_path)
+                if contract.column_roles_path
+                else None,
+            },
+        },
+    )
 
-    print(f"Saved evaluation metrics to {metrics_path}")
-
-    # --- ROC curve ---
-    fpr, tpr, _ = roc_curve(y_test, y_proba)
+    # ROC
+    fpr, tpr, _ = roc_curve(y_test, y_prob)
     plt.figure(figsize=(6, 6))
-    plt.plot(fpr, tpr, label=f"ROC AUC = {roc_auc:.3f}")
-    plt.plot([0, 1], [0, 1], "k--", label="Random")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve")
-    plt.legend(loc="lower right")
-    roc_path = Path(METADATA_DIR) / "roc_curve.png"
+    plt.plot(fpr, tpr, label=f"AUC={roc_auc:.3f}")
+    plt.plot([0, 1], [0, 1], "k--")
+    plt.legend()
     plt.tight_layout()
+    roc_path = cfg.out_dir / "roc_curve.png"
     plt.savefig(roc_path, dpi=200)
     plt.close()
-    print(f"Saved ROC curve to {roc_path}")
 
-    # --- Precision-Recall curve ---
-    precision, recall, _ = precision_recall_curve(y_test, y_proba)
+    # PR
+    precision, recall, _ = precision_recall_curve(y_test, y_prob)
     plt.figure(figsize=(6, 6))
-    plt.plot(recall, precision, label=f"PR AUC = {pr_auc:.3f}")
-    plt.xlabel("Recall")
-    plt.ylabel("Precision")
-    plt.title("Precision-Recall Curve")
-    plt.legend(loc="lower left")
-    pr_path = Path(METADATA_DIR) / "pr_curve.png"
+    plt.plot(recall, precision, label=f"AP={pr_auc:.3f}")
+    plt.legend()
     plt.tight_layout()
+    pr_path = cfg.out_dir / "pr_curve.png"
     plt.savefig(pr_path, dpi=200)
     plt.close()
-    print(f"Saved PR curve to {pr_path}")
 
-    # --- Calibration curve ---
-    prob_true, prob_pred = calibration_curve(y_test, y_proba, n_bins=10, strategy="quantile")
+    # Calibration
+    prob_true, prob_pred = calibration_curve(
+        y_test,
+        y_prob,
+        n_bins=cfg.calib_bins,
+        strategy=cfg.calib_strategy,  # type: ignore
+    )
     plt.figure(figsize=(6, 6))
-    plt.plot(prob_pred, prob_true, marker="o", label="Model")
-    plt.plot([0, 1], [0, 1], "k--", label="Perfectly calibrated")
-    plt.xlabel("Predicted probability")
-    plt.ylabel("Observed frequency")
-    plt.title("Calibration Curve")
-    plt.legend(loc="upper left")
-    calib_path = Path(METADATA_DIR) / "calibration_curve.png"
+    plt.plot(prob_pred, prob_true, marker="o")
+    plt.plot([0, 1], [0, 1], "k--")
     plt.tight_layout()
+    calib_path = cfg.out_dir / "calibration_curve.png"
     plt.savefig(calib_path, dpi=200)
     plt.close()
-    print(f"Saved calibration curve to {calib_path}")
+
+    write_json(
+        cfg.out_dir / "manifest.json",
+        {
+            "metrics": str(metrics_path),
+            "roc_curve": str(roc_path),
+            "pr_curve": str(pr_path),
+            "calibration_curve": str(calib_path),
+            "feature_manifest_path": str(contract.manifest_path)
+            if contract.manifest_path
+            else None,
+            "features_path": str(contract.features_path),
+            "model_path": str(model_path),
+        },
+    )
+
+    LOGGER.info("Saved evaluation artifacts to %s", cfg.out_dir)
+    return metrics
+
+
+# -----------------------------
+# CLI
+# -----------------------------
+
+
+def _env_path(name: str) -> Optional[Path]:
+    v = os.getenv(name)
+    return Path(v) if v else None
+
+
+def main() -> None:
+    cfg = EvalConfig(
+        feature_manifest_path=_env_path("FEATURE_MANIFEST_PATH"),
+        features_path=_env_path("FEATURES_PATH"),
+        target_col=os.getenv("TARGET_COL", "default"),
+        date_col=os.getenv("DATE_COL", "issue_d"),
+        train_fraction=float(os.getenv("TRAIN_FRACTION", "0.8")),
+        train_run_dir=_env_path("TRAIN_RUN_DIR"),
+        model_path=_env_path("MODEL_PATH"),
+        out_dir=_env_path("EVAL_OUT_DIR") or EvalConfig().out_dir,
+        threshold=float(os.getenv("THRESHOLD", "0.5")),
+        calib_bins=int(os.getenv("CALIB_BINS", "10")),
+        calib_strategy=os.getenv("CALIB_STRATEGY", "quantile"),
+        log_level=os.getenv("LOG_LEVEL", "INFO"),
+        random_state=int(os.getenv("RANDOM_STATE", str(RANDOM_STATE))),
+    )
+    setup_logging(cfg.log_level)
+    evaluate(cfg)
 
 
 if __name__ == "__main__":
-    evaluate_model()
+    main()

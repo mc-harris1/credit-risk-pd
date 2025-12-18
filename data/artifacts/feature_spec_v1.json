@@ -1,0 +1,273 @@
+{
+  "defaults": {
+    "categorical": {
+      "missing_token": "__MISSING__",
+      "rare_threshold": {
+        "min_count": 100,
+        "min_fraction": 0.005
+      },
+      "rare_token": "__OTHER__",
+      "unknown_token": "__OTHER__"
+    },
+    "datetime": {
+      "derive": [
+        "year",
+        "month",
+        "quarter"
+      ],
+      "drop_raw": true,
+      "errors": "coerce",
+      "timezone": null
+    },
+    "numerical": {
+      "log": {
+        "applies_to": "x + shift",
+        "clip_min": 0.0,
+        "function": "log1p"
+      },
+      "preserve_original": true,
+      "skew_threshold": 1.0
+    }
+  },
+  "exclusions": {
+    "drop_cols_ambiguous_or_leakage": [
+      "collection_recovery_fee",
+      "debt_settlement_flag",
+      "debt_settlement_flag_date",
+      "desc",
+      "earliest_cr_line",
+      "emp_title",
+      "hardship_amount",
+      "hardship_dpd",
+      "hardship_end_date",
+      "hardship_flag",
+      "hardship_last_payment_amount",
+      "hardship_length",
+      "hardship_loan_status",
+      "hardship_payoff_balance_amount",
+      "hardship_reason",
+      "hardship_start_date",
+      "hardship_status",
+      "hardship_type",
+      "id",
+      "last_credit_pull_d",
+      "last_fico_range_high",
+      "last_fico_range_low",
+      "last_pymnt_amnt",
+      "last_pymnt_d",
+      "member_id",
+      "mths_since_last_delinq",
+      "mths_since_last_major_derog",
+      "mths_since_last_record",
+      "mths_since_rcnt_il",
+      "mths_since_recent_bc",
+      "mths_since_recent_bc_dlq",
+      "mths_since_recent_inq",
+      "mths_since_recent_revol_delinq",
+      "next_pymnt_d",
+      "out_prncp",
+      "out_prncp_inv",
+      "payment_plan_start_date",
+      "recoveries",
+      "settlement_amount",
+      "settlement_date",
+      "settlement_percentage",
+      "settlement_status",
+      "settlement_term",
+      "total_pymnt",
+      "total_pymnt_inv",
+      "total_rec_int",
+      "total_rec_late_fee",
+      "total_rec_prncp",
+      "url"
+    ],
+    "id_cols": [
+      "id",
+      "member_id"
+    ],
+    "notes": "Exclusions are EDA-driven (ambiguity/leakage conservative policy). No heuristic dropping here.",
+    "target": "default"
+  },
+  "features": {
+    "categorical": {
+      "emp_length": {
+        "cardinality": 12,
+        "encoding_strategy": "target_mean",
+        "missing_rate": 0.05849012124834783,
+        "missing_token": "__MISSING__",
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "grade": {
+        "cardinality": 7,
+        "encoding_strategy": "one_hot",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "home_ownership": {
+        "cardinality": 6,
+        "encoding_strategy": "one_hot",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "sub_grade": {
+        "cardinality": 35,
+        "encoding_strategy": "target_mean",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      },
+      "term": {
+        "cardinality": 2,
+        "encoding_strategy": "one_hot",
+        "missing_rate": 0.0,
+        "missing_token": "__MISSING__",
+        "rare_threshold": {
+          "min_count": 100,
+          "min_fraction": 0.005
+        },
+        "rare_token": "__OTHER__",
+        "unknown_token": "__OTHER__"
+      }
+    },
+    "datetime": {
+      "issue_d": {
+        "derive": [
+          "year",
+          "month",
+          "quarter"
+        ],
+        "derived_features": [
+          "issue_d_year",
+          "issue_d_month",
+          "issue_d_quarter"
+        ],
+        "drop_raw": true,
+        "max": "2018-12-01 00:00:00",
+        "min": "2007-06-01 00:00:00",
+        "missing_rate": 0.0
+      }
+    },
+    "engineered": {
+      "loan_age_months": {
+        "availability": "inference_time",
+        "derivation": {
+          "clip": {
+            "max": null,
+            "min": 0
+          },
+          "method": "months_since",
+          "reference_date": "prediction_time",
+          "rounding": "floor"
+        },
+        "notes": "Months since issue date relative to prediction-time reference date.",
+        "source": [
+          "issue_d"
+        ],
+        "type": "derived_numeric"
+      }
+    },
+    "numerical": {
+      "annual_inc": {
+        "min_value": 430.0,
+        "missing_rate": 0.0,
+        "planned_transformation": "log",
+        "shift_for_transformation": 0.0,
+        "skewness": 46.82805932486156
+      },
+      "dti": {
+        "min_value": 0.0,
+        "missing_rate": 0.0,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.5571799800671647
+      },
+      "int_rate": {
+        "min_value": 5.31,
+        "missing_rate": 0.0,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.7170685171096257
+      },
+      "loan_amnt": {
+        "min_value": 500.0,
+        "missing_rate": 0.0,
+        "planned_transformation": "none",
+        "shift_for_transformation": 0.0,
+        "skewness": 0.780097564531221
+      }
+    }
+  },
+  "fit_rules": {
+    "imputation": {
+      "add_missing_indicators": true,
+      "categorical": "most_frequent",
+      "fit_on": "train_only",
+      "numeric": "median"
+    },
+    "target_mean_encoding": {
+      "cv_folds": 5,
+      "fit_on": "train_only",
+      "handle_missing": "prior",
+      "handle_unknown": "prior",
+      "smoothing": "auto"
+    }
+  },
+  "freeze": {
+    "created_at": "2025-12-18T19:39:41.518928+00:00",
+    "dataset_hash_md5": "e8ad755f58eef61767cf360f26e8b466",
+    "spec_hash_md5": "863833180ed7b10f3d7b85b53e6277d3",
+    "target_hash_md5": "35a969fa8f19d8df67ba285adeb4ee6a"
+  },
+  "source": {
+    "dataset": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/interim/loans_cleaned.parquet",
+    "eda_index": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/artifacts/eda_summary.json",
+    "eda_truth": {
+      "column_roles_v1": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/artifacts/column_roles_v1.json",
+      "missingness_profile_v1": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/artifacts/missingness_profile_v1.json",
+      "schema_raw_accepted_v1": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/artifacts/schema_raw_accepted_v1.json",
+      "target_definition_v1": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/artifacts/target_definition_v1.json"
+    }
+  },
+  "strategy_rules": {
+    "categorical": {
+      "fallback": "count_frequency",
+      "one_hot_max": 10,
+      "target_mean_max": 100
+    }
+  },
+  "target": {
+    "allowed_values": [
+      0,
+      1
+    ],
+    "definition_source": "target_definition_v1.json",
+    "dtype": "int64",
+    "missing_allowed": false,
+    "name": "default",
+    "positive_label": 1,
+    "positive_rate_at_freeze": 0.21465110355483252
+  },
+  "version": "v1"
+}

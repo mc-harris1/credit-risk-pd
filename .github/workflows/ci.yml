@@ -9,6 +9,22 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    env:
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: "INFO"
+      FEATURE_MANIFEST_PATH: data/artifacts/engineered_features_manifest_v1.json
+
+      # Run outputs (stable paths for CI artifacts)
+      TRAIN_OUT_DIR: data/artifacts/runs/train/ci
+      EVAL_OUT_DIR: data/artifacts/runs/eval/ci
+      EXPLAIN_OUT_DIR: data/artifacts/runs/explain/ci
+      TRAIN_RUN_DIR: data/artifacts/runs/train/ci
+
+      TARGET_COL: default
+      DATE_COL: issue_d
+      TRAIN_FRACTION: "0.8"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,7 +37,7 @@ jobs:
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Install dependencies and package
+      - name: Install dependencies
         run: |
           uv sync --all-groups
 
@@ -29,18 +45,11 @@ jobs:
         run: |
           uvx ruff check src tests
 
-      - name: "Debug: print Python info"
-        run: |
-          echo "--- python version (uv run) ---"
-          uv run python -V || python -V
-          echo "--- sys.path (first 10 entries) ---"
-          uv run python -c "import sys; import json; print(json.dumps(sys.path[:10]))" || python -c "import sys, json; print(json.dumps(sys.path[:10]))"
-
       - name: Run tests with coverage
         run: |
           uv run pytest --cov=src --cov-report=xml --cov-report=html
 
-      - name: Upload coverage XML (for CI tools)
+      - name: Upload coverage XML
         uses: actions/upload-artifact@v4
         with:
           name: coverage-xml
@@ -52,37 +61,85 @@ jobs:
           name: coverage-html
           path: htmlcov/
 
-      # --- NEW: model evaluation ---
-      - name: Generate synthetic data for evaluation
+      # ----------------------------
+      # Pipeline smoke test (contract-first)
+      # ----------------------------
+
+      - name: Generate synthetic raw data for CI
         run: |
           uv run python tests/generate_synthetic_data.py
 
-      - name: Tune hyperparameters
+      - name: "Debug: show data/raw"
         run: |
-          uv run python -m src.models.tune
+          pwd
+          ls -lah data || true
+          ls -lah data/raw || true
 
-      - name: Train model with best hyperparameters
+      - name: Preprocess data (overwrite)
+        run: |
+          uv run python -m src.data.preprocess --overwrite
+
+      - name: "Debug: show data/interim"
+        run: |
+          ls -lah data/interim || true
+
+      - name: Verify preprocess output exists
+        run: |
+          test -f data/interim/loans_cleaned.parquet
+
+      - name: Build engineered features + manifest
+        run: |
+          uv run python -m src.features.build_features
+
+      - name: "Debug: show processed + artifacts"
+        run: |
+          ls -lah data/processed || true
+          ls -lah data/artifacts || true
+
+      - name: Verify engineered outputs exist
+        run: |
+          test -f data/processed/engineered_features_v1.parquet
+          test -f data/artifacts/engineered_features_manifest_v1.json
+
+      - name: Train model (manifest-first)
         run: |
           uv run python -m src.models.train
 
-      - name: Evaluate trained model
+      - name: Evaluate model (manifest-first)
         run: |
           uv run python -m src.models.evaluate
 
-      - name: Upload evaluation metrics
-        uses: actions/upload-artifact@v4
-        with:
-          name: evaluation-metrics
-          path: models/metadata/evaluation_metrics.json
+      - name: Explain model (manifest-first)
+        run: |
+          uv run python -m src.models.explain
 
-      - name: Upload evaluation plots
+      # ----------------------------
+      # Upload artifacts
+      # ----------------------------
+
+      - name: Upload engineered features manifest
         uses: actions/upload-artifact@v4
         with:
-          name: evaluation-plots
-          path: |
-            models/metadata/roc_curve.png
-            models/metadata/pr_curve.png
-            models/metadata/calibration_curve.png
+          name: engineered-features-manifest
+          path: data/artifacts/engineered_features_manifest_v1.json
+
+      - name: Upload train run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: train-run
+          path: data/artifacts/runs/train/ci/
+
+      - name: Upload eval run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-run
+          path: data/artifacts/runs/eval/ci/
+
+      - name: Upload explain run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: explain-run
+          path: data/artifacts/runs/explain/ci/
 
   docker-build:
     runs-on: ubuntu-latest

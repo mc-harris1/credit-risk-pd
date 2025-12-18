@@ -1,0 +1,82 @@
+{
+  "bundle_id": "pd_hgb_mp__20251218T203133Z",
+  "model_name": "hgb_sigmoid_calibrated",
+  "created_at_utc": "2025-12-18T20:31:33.520054+00:00",
+  "inputs": {
+    "feature_matrix": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/processed/engineered_features_v1.parquet",
+    "feature_spec": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/artifacts/feature_spec_v1.json"
+  },
+  "feature_spec_hash_sha256": "54691fc15766605e1f0c5a130c9be56638a0a92690da6e6b755e4a52bc25dbca",
+  "split_meta": {
+    "train_rows": 959114,
+    "val_rows": 205524,
+    "test_rows": 205525,
+    "train_anchor_min": "2007-06-01 00:00:00",
+    "train_anchor_max": "2016-04-01 00:00:00",
+    "val_anchor_min": "2016-04-01 00:00:00",
+    "val_anchor_max": "2017-03-01 00:00:00",
+    "test_anchor_min": "2017-03-01 00:00:00",
+    "test_anchor_max": "2018-12-01 00:00:00",
+    "train_default_rate": 0.19081881820096463,
+    "val_default_rate": 0.26563807633171793,
+    "test_default_rate": 0.2748814012893809
+  },
+  "dropped_all_null_cols": [],
+  "feature_cols": [
+    "annual_inc",
+    "annual_inc__log1p",
+    "dti",
+    "emp_length__target_mean",
+    "grade_<NA>",
+    "grade_A",
+    "grade_B",
+    "grade_C",
+    "grade_D",
+    "grade_E",
+    "grade_F",
+    "grade_G",
+    "grade_numeric",
+    "home_ownership_<NA>",
+    "home_ownership_ANY",
+    "home_ownership_MORTGAGE",
+    "home_ownership_NONE",
+    "home_ownership_OTHER",
+    "home_ownership_OWN",
+    "home_ownership_RENT",
+    "int_rate",
+    "issue_d_month",
+    "issue_d_quarter",
+    "issue_d_year",
+    "loan_age_months",
+    "loan_amnt",
+    "sub_grade__target_mean",
+    "term_ 36 months",
+    "term_ 60 months",
+    "term_<NA>",
+    "term_months"
+  ],
+  "metrics": {
+    "baseline_val": {
+      "roc_auc": 0.6781507232790471,
+      "pr_auc": 0.4181782189708343,
+      "brier": 0.24559626173866972,
+      "log_loss": 0.6888657027258445
+    },
+    "primary_val": {
+      "roc_auc": 0.6870778716927307,
+      "pr_auc": 0.43110134135465245,
+      "brier": 0.1786850873834222,
+      "log_loss": 0.535503157477358
+    },
+    "test_raw": {
+      "roc_auc": 0.6957195818441747,
+      "pr_auc": 0.44281279473944746,
+      "brier": 0.1809689975422927,
+      "log_loss": 0.5395366615561296
+    },
+    "calibration": {
+      "raw_test_brier": 0.1809689975422927,
+      "cal_test_brier": 0.18094216277236985
+    }
+  }
+}

@@ -1,166 +1,286 @@
 # src/models/explain.py
+# Copyright (c) 2025 Mark Harris
+# Licensed under the MIT License. See LICENSE file in the project root.
+
+from __future__ import annotations
+
 import json
+import logging
 import os
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Tuple
+from typing import Any, Dict, Optional
 
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import shap
 from scipy import sparse
+from sklearn.pipeline import Pipeline
 
-from src.config import METADATA_DIR, MODELS_DIR
-from src.features.transforms import add_domain_features
-from src.models.train import (
-    MODEL_FILE,
-    load_feature_data,
-    time_based_split,
-)
+from src.config import ARTIFACTS_DIR, RANDOM_STATE
+from src.models.datasets import DataContract, load_data_contract, prepare_time_split_xy
+
+LOGGER = logging.getLogger(__name__)
 
 
-def _prepare_data() -> Tuple[pd.DataFrame, pd.Series]:
-    """Load feature data and return X_test, y_test for SHAP analysis."""
-    X, y, dates = load_feature_data()
-    # use same time-based split as training/eval
-    _, X_test, _, y_test = time_based_split(X, y, dates, train_fraction=0.8)
-
-    # domain features (same as train)
-    X_test = add_domain_features(X_test)
-
-    # drop raw date column if present
-    if "issue_d" in X_test.columns:
-        X_test = X_test.drop(columns=["issue_d"])
-
-    return X_test, y_test
+# -----------------------------
+# Config
+# -----------------------------
 
 
-def _load_pipeline():
-    model_path = Path(MODELS_DIR) / MODEL_FILE
-    if not model_path.exists():
-        msg = f"Model artifact not found at {model_path}. Train the model first."
-        raise FileNotFoundError(msg)
-    return joblib.load(model_path)
+@dataclass(frozen=True)
+class ExplainConfig:
+    # Manifest-first input
+    feature_manifest_path: Optional[Path] = None
 
+    # Fallbacks (only used if manifest not provided)
+    features_path: Optional[Path] = None
+    target_col: str = "default"
+    date_col: str = "issue_d"
+    train_fraction: float = 0.80
 
-def _build_explainer(pipeline, X_background: pd.DataFrame) -> shap.Explainer:
-    """Build a TreeExplainer on the fitted XGBoost model using transformed features."""
-    model = pipeline.named_steps["model"]
-    preprocessor = pipeline.named_steps["preprocess"]
+    # Model input
+    train_run_dir: Optional[Path] = None
+    model_path: Optional[Path] = None
 
-    # transform background data into model space
-    X_bg_trans = preprocessor.transform(X_background)
-
-    # Convert sparse matrix to dense for SHAP compatibility
-    if sparse.issparse(X_bg_trans):
-        X_bg_trans = X_bg_trans.toarray()
-
-    # feature names after preprocessing (handles OHE)
-    try:
-        feature_names = preprocessor.get_feature_names_out()
-    except AttributeError:
-        # fallback: generic names
-        feature_names = [f"f_{i}" for i in range(X_bg_trans.shape[1])]
-
-    explainer = shap.TreeExplainer(
-        model,
-        data=X_bg_trans,
-        feature_names=feature_names,
-        feature_perturbation="interventional",
+    # Output
+    out_dir: Path = (
+        Path(ARTIFACTS_DIR) / "runs" / "explain" / datetime.now().strftime("%Y%m%d_%H%M%S")
     )
-    return explainer
+
+    # SHAP sampling
+    num_background: int = 1000
+    num_samples: int = 2000
+
+    log_level: str = "INFO"
+    random_state: int = RANDOM_STATE
 
 
-def run_shap_global(num_background: int = 1000, num_samples: int = 2000) -> None:
-    """Compute global SHAP feature importance and save plots + JSON summary."""
-    os.makedirs(METADATA_DIR, exist_ok=True)
+# -----------------------------
+# Logging / IO
+# -----------------------------
 
-    X_test, y_test = _prepare_data()
-    pipeline = _load_pipeline()
-    preprocessor = pipeline.named_steps["preprocess"]
 
-    # choose background subset from test (or you could use train)
-    if len(X_test) > num_background:
-        X_bg = X_test.sample(num_background, random_state=0)
-    else:
-        X_bg = X_test.copy()
+def setup_logging(level: str) -> None:
+    logging.basicConfig(
+        level=getattr(logging, level.upper(), logging.INFO),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
 
-    explainer = _build_explainer(pipeline, X_bg)
 
-    # sample points for global explanation
-    if len(X_test) > num_samples:
-        X_sample = X_test.sample(num_samples, random_state=1)
-        # y_sample = y_test.loc[X_sample.index]
-    else:
-        X_sample = X_test
-        # y_sample = y_test
+def ensure_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
 
-    X_sample_trans = preprocessor.transform(X_sample)
 
-    # Convert sparse matrix to dense for SHAP compatibility
-    if sparse.issparse(X_sample_trans):
-        X_sample_trans = X_sample_trans.toarray()
+def write_json(path: Path, payload: Dict[str, Any]) -> None:
+    ensure_dir(path.parent)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, sort_keys=True)
 
-    shap_values = explainer(X_sample_trans)
 
-    # SHAP can return Explanation object or array; extract values
-    if hasattr(shap_values, "values"):
-        shap_values = shap_values.values
+# -----------------------------
+# Model loading
+# -----------------------------
 
-    # SHAP can return list for multiclass; we want positive class
-    if isinstance(shap_values, list):
-        shap_values = shap_values[1]
 
-    # feature names after preprocessing
+def resolve_model_path(cfg: ExplainConfig) -> Path:
+    if cfg.model_path:
+        return cfg.model_path
+    if cfg.train_run_dir:
+        candidate = cfg.train_run_dir / "model.joblib"
+        if candidate.exists():
+            return candidate
+        raise FileNotFoundError(f"model.joblib not found in train_run_dir: {cfg.train_run_dir}")
+    raise ValueError("Provide MODEL_PATH or TRAIN_RUN_DIR")
+
+
+def load_pipeline(model_path: Path) -> Pipeline:
+    obj = joblib.load(model_path)
+    if not isinstance(obj, Pipeline):
+        raise TypeError("Loaded model artifact is not a sklearn Pipeline")
+    return obj
+
+
+# -----------------------------
+# Contract resolution
+# -----------------------------
+
+
+def resolve_contract(cfg: ExplainConfig) -> DataContract:
+    return load_data_contract(
+        feature_manifest_path=cfg.feature_manifest_path,
+        features_path=cfg.features_path,
+        target_col=cfg.target_col,
+        date_col=cfg.date_col,
+        train_fraction=cfg.train_fraction,
+    )
+
+
+# -----------------------------
+# SHAP helpers
+# -----------------------------
+
+
+def _to_dense(X: Any) -> np.ndarray:
+    if sparse.issparse(X):
+        return X.toarray()
+    return np.asarray(X)
+
+
+def _feature_names(pre) -> list[str]:
     try:
-        feature_names = preprocessor.get_feature_names_out()
-    except AttributeError:
-        feature_names = [f"f_{i}" for i in range(X_sample_trans.shape[1])]
+        return list(pre.get_feature_names_out())
+    except Exception:
+        return []
 
-    # --- Global importance JSON: mean |SHAP| per feature ---
-    mean_abs = np.abs(shap_values).mean(axis=0)
+
+# -----------------------------
+# Explain
+# -----------------------------
+
+
+def run_shap_global(cfg: ExplainConfig) -> Dict[str, Any]:
+    ensure_dir(cfg.out_dir)
+
+    contract = resolve_contract(cfg)
+    model_path = resolve_model_path(cfg)
+    pipeline = load_pipeline(model_path)
+
+    # One call: load -> time split -> domain features -> drop date col
+    _, X_test, _, y_test, contract = prepare_time_split_xy(contract)
+
+    pre = pipeline.named_steps["preprocess"]
+    model = pipeline.named_steps["model"]
+
+    rng = np.random.default_rng(cfg.random_state)
+
+    if len(X_test) > cfg.num_background:
+        bg_idx = rng.choice(len(X_test), size=cfg.num_background, replace=False)
+        X_bg = X_test.iloc[bg_idx]
+    else:
+        X_bg = X_test
+
+    X_bg_trans = _to_dense(pre.transform(X_bg))
+
+    names = _feature_names(pre)
+    if not names:
+        names = [f"f_{i}" for i in range(X_bg_trans.shape[1])]
+
+    # Linear-friendly SHAP (LogReg baseline)
+    explainer = shap.LinearExplainer(model, X_bg_trans, feature_names=names)
+
+    if len(X_test) > cfg.num_samples:
+        smp_idx = rng.choice(len(X_test), size=cfg.num_samples, replace=False)
+        X_s = X_test.iloc[smp_idx]
+    else:
+        X_s = X_test
+
+    X_s_trans = _to_dense(pre.transform(X_s))
+    shap_exp = explainer(X_s_trans)
+    values = np.asarray(shap_exp.values)
+
+    # Global importance
+    mean_abs = np.abs(values).mean(axis=0)
     importance = sorted(
-        [
-            {"feature": name, "mean_abs_shap": float(val)}
-            for name, val in zip(feature_names, mean_abs, strict=True)
-        ],
+        [{"feature": n, "mean_abs_shap": float(v)} for n, v in zip(names, mean_abs, strict=True)],
         key=lambda d: d["mean_abs_shap"],
         reverse=True,
     )
 
-    importance_path = os.path.join(METADATA_DIR, "shap_global_importance.json")
-    with open(importance_path, "w", encoding="utf-8") as f:
-        json.dump({"importance": importance}, f, indent=2)
-    print(f"Saved SHAP global importance to {importance_path}")
+    importance_path = cfg.out_dir / "shap_global_importance.json"
+    write_json(importance_path, {"importance": importance})
 
-    # --- Summary bar plot ---
-    shap.summary_plot(
-        shap_values,
-        X_sample_trans,
-        feature_names=feature_names,
-        plot_type="bar",
-        show=False,
-    )
-    bar_path = os.path.join(METADATA_DIR, "shap_summary_bar.png")
+    # Plots
+    bar_path = cfg.out_dir / "shap_summary_bar.png"
+    beeswarm_path = cfg.out_dir / "shap_summary_beeswarm.png"
+
+    shap.summary_plot(values, X_s_trans, feature_names=names, plot_type="bar", show=False)
     plt.tight_layout()
     plt.savefig(bar_path, dpi=200, bbox_inches="tight")
     plt.close()
-    print(f"Saved SHAP summary bar plot to {bar_path}")
 
-    # --- Beeswarm plot ---
-    shap.summary_plot(
-        shap_values,
-        X_sample_trans,
-        feature_names=feature_names,
-        show=False,
-    )
-    beeswarm_path = os.path.join(METADATA_DIR, "shap_summary_beeswarm.png")
+    shap.summary_plot(values, X_s_trans, feature_names=names, show=False)
     plt.tight_layout()
     plt.savefig(beeswarm_path, dpi=200, bbox_inches="tight")
     plt.close()
-    print(f"Saved SHAP beeswarm plot to {beeswarm_path}")
+
+    # Manifest
+    manifest_path = cfg.out_dir / "manifest.json"
+    write_json(
+        manifest_path,
+        {
+            "run_utc": datetime.now(timezone.utc).isoformat(),
+            "data_contract": {
+                "feature_manifest_path": str(contract.manifest_path)
+                if contract.manifest_path
+                else None,
+                "features_path": str(contract.features_path),
+                "target_col": contract.target_col,
+                "date_col": contract.date_col,
+                "split": {
+                    "strategy": contract.split_strategy,
+                    "train_fraction": float(contract.train_fraction),
+                    "cutoff_date": contract.cutoff_date,
+                },
+            },
+            "model": {
+                "model_path": str(model_path),
+                "train_run_dir": str(cfg.train_run_dir) if cfg.train_run_dir else None,
+            },
+            "shap": {"num_background": int(len(X_bg)), "num_samples": int(len(X_s))},
+            "artifacts": {
+                "importance_json": str(importance_path),
+                "summary_bar": str(bar_path),
+                "summary_beeswarm": str(beeswarm_path),
+            },
+            "linked_manifest_preview": {
+                "feature_spec_path": str(contract.feature_spec_path)
+                if contract.feature_spec_path
+                else None,
+                "target_definition_path": str(contract.target_definition_path)
+                if contract.target_definition_path
+                else None,
+                "column_roles_path": str(contract.column_roles_path)
+                if contract.column_roles_path
+                else None,
+            },
+        },
+    )
+
+    LOGGER.info("Saved SHAP artifacts to %s", cfg.out_dir)
+    return {"importance_top10": importance[:10]}
+
+
+# -----------------------------
+# CLI
+# -----------------------------
+
+
+def _env_path(name: str) -> Optional[Path]:
+    v = os.getenv(name)
+    return Path(v) if v else None
+
+
+def main() -> None:
+    cfg = ExplainConfig(
+        feature_manifest_path=_env_path("FEATURE_MANIFEST_PATH"),
+        features_path=_env_path("FEATURES_PATH"),
+        target_col=os.getenv("TARGET_COL", "default"),
+        date_col=os.getenv("DATE_COL", "issue_d"),
+        train_fraction=float(os.getenv("TRAIN_FRACTION", "0.8")),
+        train_run_dir=_env_path("TRAIN_RUN_DIR"),
+        model_path=_env_path("MODEL_PATH"),
+        out_dir=_env_path("EXPLAIN_OUT_DIR") or ExplainConfig().out_dir,
+        num_background=int(os.getenv("NUM_BACKGROUND", "1000")),
+        num_samples=int(os.getenv("NUM_SAMPLES", "2000")),
+        random_state=int(os.getenv("RANDOM_STATE", str(RANDOM_STATE))),
+        log_level=os.getenv("LOG_LEVEL", "INFO"),
+    )
+    setup_logging(cfg.log_level)
+    run_shap_global(cfg)
 
 
 if __name__ == "__main__":
-    run_shap_global()
+    main()
