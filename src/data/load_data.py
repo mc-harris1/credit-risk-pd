@@ -1,30 +1,37 @@
 # Copyright (c) 2025 Mark Harris
 # Licensed under the MIT License. See LICENSE file in the project root.
 
-import os
+from __future__ import annotations
+
+from pathlib import Path
 
 import pandas as pd
 
-from src.config import RAW_DATA_DIR
 
-
-def load_raw_loans(filename: str, subdirectory: str = "") -> pd.DataFrame:
-    """Load raw loan data from the data/raw directory.
+def load_raw_loans(path: Path) -> pd.DataFrame:
+    """Load raw loan data from a CSV file.
 
     Args:
-        filename: Name of the CSV file to load
-        subdirectory: Optional subdirectory within data/raw
+        path: Full path to the raw CSV file
 
     Returns:
         DataFrame containing the raw loan data
     """
-    if subdirectory:
-        raw_path = os.path.join(RAW_DATA_DIR, subdirectory, filename)
-    else:
-        raw_path = os.path.join(RAW_DATA_DIR, filename)
+    if not path.exists():
+        raise FileNotFoundError(f"Raw data file not found: {path}")
 
-    if not os.path.exists(raw_path):
-        msg = f"Raw data file not found: {raw_path}"
-        raise FileNotFoundError(msg)
+    if not path.is_file():
+        raise RuntimeError(f"Expected a file but got: {path}")
 
-    return pd.read_csv(raw_path, low_memory=False)
+    if path.suffix.lower() != ".csv":
+        raise RuntimeError(f"Unsupported file type: {path.suffix} (expected .csv)")
+
+    try:
+        df = pd.read_csv(path, low_memory=False)
+    except pd.errors.EmptyDataError as exc:
+        raise RuntimeError(f"Loaded empty dataframe from: {path}") from exc
+
+    if df.empty:
+        raise RuntimeError(f"Loaded empty dataframe from: {path}")
+
+    return df

@@ -1,0 +1,13 @@
+{
+  "censoring_policy": "exclude_unresolved_loans",
+  "mapping": {
+    "Charged Off": 1,
+    "Default": 1,
+    "Fully Paid": 0,
+    "Late (16-30 days)": 1,
+    "Late (31-120 days)": 1
+  },
+  "source_col": "loan_status",
+  "target_name": "default",
+  "unmapped_policy": "exclude_rows"
+}

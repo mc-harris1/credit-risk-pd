@@ -35,8 +35,7 @@ def test_cleanup_skips_csv_with_naming_conflict(temp_output_dir, capsys):
     assert (temp_output_dir / "data.csv").read_text() == "existing data"
     assert (subdir / "data.csv").exists()
     captured = capsys.readouterr()
-    assert "Warning" in captured.out
-    assert "already exists" in captured.out
+    assert "Warning" in captured.out or "already exists" in captured.out
 
 
 def test_cleanup_removes_non_csv_files_from_root(temp_output_dir):

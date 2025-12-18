@@ -1,0 +1,51 @@
+{
+  "created_at": "2025-12-18T20:17:43.377599+00:00",
+  "created_cols_sample": [
+    "emp_length__target_mean",
+    "grade_<NA>",
+    "grade_A",
+    "grade_B",
+    "grade_C",
+    "grade_D",
+    "grade_E",
+    "grade_F",
+    "grade_G",
+    "home_ownership_<NA>",
+    "home_ownership_ANY",
+    "home_ownership_MORTGAGE",
+    "home_ownership_NONE",
+    "home_ownership_OTHER",
+    "home_ownership_OWN",
+    "home_ownership_RENT",
+    "issue_d_month",
+    "issue_d_quarter",
+    "issue_d_year",
+    "loan_age_months",
+    "sub_grade__target_mean",
+    "term_ 36 months",
+    "term_ 60 months",
+    "term_<NA>"
+  ],
+  "feature_spec_path": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/artifacts/feature_spec_v1.json",
+  "fitted_encoder_summaries": {
+    "frequency": {},
+    "one_hot": {
+      "grade": {
+        "n_cols": 8
+      },
+      "home_ownership": {
+        "n_cols": 7
+      },
+      "term": {
+        "n_cols": 3
+      }
+    }
+  },
+  "input_path": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/interim/loans_cleaned.parquet",
+  "n_cols": 36,
+  "n_rows": 1370163,
+  "output_head_md5": "c9b4f04242a9ede6bf8af52d0676d54e",
+  "output_path": "/Users/mcharris/Developer/mc-harris1/credit-risk-pd/data/processed/engineered_features_v1.parquet",
+  "reference_date_used": null,
+  "target": "default"
+}

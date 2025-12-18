@@ -1,0 +1,757 @@
+[
+  {
+    "column": "member_id",
+    "dtype": "float64",
+    "missing_rate": 1.0
+  },
+  {
+    "column": "orig_projected_additional_accrued_interest",
+    "dtype": "float64",
+    "missing_rate": 0.9961733108447336
+  },
+  {
+    "column": "hardship_end_date",
+    "dtype": "object",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "hardship_start_date",
+    "dtype": "object",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "hardship_type",
+    "dtype": "object",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "hardship_reason",
+    "dtype": "object",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "hardship_status",
+    "dtype": "object",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "deferral_term",
+    "dtype": "float64",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "hardship_last_payment_amount",
+    "dtype": "float64",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "hardship_payoff_balance_amount",
+    "dtype": "float64",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "hardship_loan_status",
+    "dtype": "object",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "hardship_dpd",
+    "dtype": "float64",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "hardship_length",
+    "dtype": "float64",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "payment_plan_start_date",
+    "dtype": "object",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "hardship_amount",
+    "dtype": "float64",
+    "missing_rate": 0.9951709668815115
+  },
+  {
+    "column": "settlement_term",
+    "dtype": "float64",
+    "missing_rate": 0.9848516013395845
+  },
+  {
+    "column": "debt_settlement_flag_date",
+    "dtype": "object",
+    "missing_rate": 0.9848516013395845
+  },
+  {
+    "column": "settlement_status",
+    "dtype": "object",
+    "missing_rate": 0.9848516013395845
+  },
+  {
+    "column": "settlement_date",
+    "dtype": "object",
+    "missing_rate": 0.9848516013395845
+  },
+  {
+    "column": "settlement_amount",
+    "dtype": "float64",
+    "missing_rate": 0.9848516013395845
+  },
+  {
+    "column": "settlement_percentage",
+    "dtype": "float64",
+    "missing_rate": 0.9848516013395845
+  },
+  {
+    "column": "sec_app_mths_since_last_major_derog",
+    "dtype": "float64",
+    "missing_rate": 0.9841013915595207
+  },
+  {
+    "column": "sec_app_revol_util",
+    "dtype": "float64",
+    "missing_rate": 0.9530304980623266
+  },
+  {
+    "column": "revol_bal_joint",
+    "dtype": "float64",
+    "missing_rate": 0.9522183605881539
+  },
+  {
+    "column": "sec_app_mort_acc",
+    "dtype": "float64",
+    "missing_rate": 0.9522179182474817
+  },
+  {
+    "column": "sec_app_fico_range_low",
+    "dtype": "float64",
+    "missing_rate": 0.9522179182474817
+  },
+  {
+    "column": "sec_app_fico_range_high",
+    "dtype": "float64",
+    "missing_rate": 0.9522179182474817
+  },
+  {
+    "column": "sec_app_earliest_cr_line",
+    "dtype": "object",
+    "missing_rate": 0.9522179182474817
+  },
+  {
+    "column": "sec_app_inq_last_6mths",
+    "dtype": "float64",
+    "missing_rate": 0.9522179182474817
+  },
+  {
+    "column": "sec_app_open_acc",
+    "dtype": "float64",
+    "missing_rate": 0.9522179182474817
+  },
+  {
+    "column": "sec_app_open_act_il",
+    "dtype": "float64",
+    "missing_rate": 0.9522179182474817
+  },
+  {
+    "column": "sec_app_num_rev_accts",
+    "dtype": "float64",
+    "missing_rate": 0.9522179182474817
+  },
+  {
+    "column": "sec_app_chargeoff_within_12_mths",
+    "dtype": "float64",
+    "missing_rate": 0.9522179182474817
+  },
+  {
+    "column": "sec_app_collections_12_mths_ex_med",
+    "dtype": "float64",
+    "missing_rate": 0.9522179182474817
+  },
+  {
+    "column": "verification_status_joint",
+    "dtype": "object",
+    "missing_rate": 0.9488079140054346
+  },
+  {
+    "column": "dti_joint",
+    "dtype": "float64",
+    "missing_rate": 0.9466068268205304
+  },
+  {
+    "column": "annual_inc_joint",
+    "dtype": "float64",
+    "missing_rate": 0.9466050574578416
+  },
+  {
+    "column": "desc",
+    "dtype": "object",
+    "missing_rate": 0.9442363231581709
+  },
+  {
+    "column": "mths_since_last_record",
+    "dtype": "float64",
+    "missing_rate": 0.8411306935326698
+  },
+  {
+    "column": "mths_since_recent_bc_dlq",
+    "dtype": "float64",
+    "missing_rate": 0.7701151103131285
+  },
+  {
+    "column": "mths_since_last_major_derog",
+    "dtype": "float64",
+    "missing_rate": 0.7430995960987322
+  },
+  {
+    "column": "mths_since_recent_revol_delinq",
+    "dtype": "float64",
+    "missing_rate": 0.6725091022651823
+  },
+  {
+    "column": "next_pymnt_d",
+    "dtype": "object",
+    "missing_rate": 0.595099926969555
+  },
+  {
+    "column": "mths_since_last_delinq",
+    "dtype": "float64",
+    "missing_rate": 0.5124671506758302
+  },
+  {
+    "column": "il_util",
+    "dtype": "float64",
+    "missing_rate": 0.47281042473109003
+  },
+  {
+    "column": "mths_since_rcnt_il",
+    "dtype": "float64",
+    "missing_rate": 0.40251099105985266
+  },
+  {
+    "column": "all_util",
+    "dtype": "float64",
+    "missing_rate": 0.3832355539277419
+  },
+  {
+    "column": "open_acc_6m",
+    "dtype": "float64",
+    "missing_rate": 0.3831391236612007
+  },
+  {
+    "column": "total_cu_tl",
+    "dtype": "float64",
+    "missing_rate": 0.3831391236612007
+  },
+  {
+    "column": "inq_last_12m",
+    "dtype": "float64",
+    "missing_rate": 0.3831391236612007
+  },
+  {
+    "column": "open_rv_24m",
+    "dtype": "float64",
+    "missing_rate": 0.3831386813205285
+  },
+  {
+    "column": "open_rv_12m",
+    "dtype": "float64",
+    "missing_rate": 0.3831386813205285
+  },
+  {
+    "column": "total_bal_il",
+    "dtype": "float64",
+    "missing_rate": 0.3831386813205285
+  },
+  {
+    "column": "open_il_24m",
+    "dtype": "float64",
+    "missing_rate": 0.3831386813205285
+  },
+  {
+    "column": "open_il_12m",
+    "dtype": "float64",
+    "missing_rate": 0.3831386813205285
+  },
+  {
+    "column": "open_act_il",
+    "dtype": "float64",
+    "missing_rate": 0.3831386813205285
+  },
+  {
+    "column": "max_bal_bc",
+    "dtype": "float64",
+    "missing_rate": 0.3831386813205285
+  },
+  {
+    "column": "inq_fi",
+    "dtype": "float64",
+    "missing_rate": 0.3831386813205285
+  },
+  {
+    "column": "mths_since_recent_inq",
+    "dtype": "float64",
+    "missing_rate": 0.13069751373578373
+  },
+  {
+    "column": "emp_title",
+    "dtype": "object",
+    "missing_rate": 0.07387177693998455
+  },
+  {
+    "column": "num_tl_120dpd_2m",
+    "dtype": "float64",
+    "missing_rate": 0.06798333791155929
+  },
+  {
+    "column": "emp_length",
+    "dtype": "object",
+    "missing_rate": 0.06499753837415917
+  },
+  {
+    "column": "mo_sin_old_il_acct",
+    "dtype": "float64",
+    "missing_rate": 0.06153135686674178
+  },
+  {
+    "column": "bc_util",
+    "dtype": "float64",
+    "missing_rate": 0.033663894517673945
+  },
+  {
+    "column": "percent_bc_gt_75",
+    "dtype": "float64",
+    "missing_rate": 0.0333577947725064
+  },
+  {
+    "column": "bc_open_to_buy",
+    "dtype": "float64",
+    "missing_rate": 0.03316139551404631
+  },
+  {
+    "column": "mths_since_recent_bc",
+    "dtype": "float64",
+    "missing_rate": 0.032487710670274395
+  },
+  {
+    "column": "pct_tl_nvr_dlq",
+    "dtype": "float64",
+    "missing_rate": 0.03116909312642406
+  },
+  {
+    "column": "avg_cur_bal",
+    "dtype": "float64",
+    "missing_rate": 0.031131494169286428
+  },
+  {
+    "column": "mo_sin_old_rev_tl_op",
+    "dtype": "float64",
+    "missing_rate": 0.031100972662904118
+  },
+  {
+    "column": "mo_sin_rcnt_rev_tl_op",
+    "dtype": "float64",
+    "missing_rate": 0.031100972662904118
+  },
+  {
+    "column": "num_rev_accts",
+    "dtype": "float64",
+    "missing_rate": 0.031100972662904118
+  },
+  {
+    "column": "mo_sin_rcnt_tl",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_tl_30dpd",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_accts_ever_120_pd",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_actv_rev_tl",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_il_tl",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_op_rev_tl",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_rev_tl_bal_gt_0",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_tl_90g_dpd_24m",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_tl_op_past_12m",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "tot_hi_cred_lim",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "total_il_high_credit_limit",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_bc_tl",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_actv_bc_tl",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "total_rev_hi_lim",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "tot_coll_amt",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "tot_cur_bal",
+    "dtype": "float64",
+    "missing_rate": 0.03110053032223191
+  },
+  {
+    "column": "num_bc_sats",
+    "dtype": "float64",
+    "missing_rate": 0.02593133722681593
+  },
+  {
+    "column": "num_sats",
+    "dtype": "float64",
+    "missing_rate": 0.02593133722681593
+  },
+  {
+    "column": "acc_open_past_24mths",
+    "dtype": "float64",
+    "missing_rate": 0.022144901072720363
+  },
+  {
+    "column": "mort_acc",
+    "dtype": "float64",
+    "missing_rate": 0.022144901072720363
+  },
+  {
+    "column": "total_bc_limit",
+    "dtype": "float64",
+    "missing_rate": 0.022144901072720363
+  },
+  {
+    "column": "total_bal_ex_mort",
+    "dtype": "float64",
+    "missing_rate": 0.022144901072720363
+  },
+  {
+    "column": "title",
+    "dtype": "object",
+    "missing_rate": 0.010332635762093261
+  },
+  {
+    "column": "last_pymnt_d",
+    "dtype": "object",
+    "missing_rate": 0.0010881580536302679
+  },
+  {
+    "column": "revol_util",
+    "dtype": "float64",
+    "missing_rate": 0.0008116951335006265
+  },
+  {
+    "column": "dti",
+    "dtype": "float64",
+    "missing_rate": 0.0007714421323297508
+  },
+  {
+    "column": "pub_rec_bankruptcies",
+    "dtype": "float64",
+    "missing_rate": 0.0006183922597459814
+  },
+  {
+    "column": "chargeoff_within_12_mths",
+    "dtype": "float64",
+    "missing_rate": 7.873663965292182e-05
+  },
+  {
+    "column": "collections_12_mths_ex_med",
+    "dtype": "float64",
+    "missing_rate": 7.873663965292182e-05
+  },
+  {
+    "column": "tax_liens",
+    "dtype": "float64",
+    "missing_rate": 6.104301276462478e-05
+  },
+  {
+    "column": "last_credit_pull_d",
+    "dtype": "object",
+    "missing_rate": 4.644577058177972e-05
+  },
+  {
+    "column": "inq_last_6mths",
+    "dtype": "float64",
+    "missing_rate": 2.7867462349067834e-05
+  },
+  {
+    "column": "total_acc",
+    "dtype": "float64",
+    "missing_rate": 2.7425121676860406e-05
+  },
+  {
+    "column": "delinq_2yrs",
+    "dtype": "float64",
+    "missing_rate": 2.7425121676860406e-05
+  },
+  {
+    "column": "earliest_cr_line",
+    "dtype": "object",
+    "missing_rate": 2.7425121676860406e-05
+  },
+  {
+    "column": "open_acc",
+    "dtype": "float64",
+    "missing_rate": 2.7425121676860406e-05
+  },
+  {
+    "column": "pub_rec",
+    "dtype": "float64",
+    "missing_rate": 2.7425121676860406e-05
+  },
+  {
+    "column": "acc_now_delinq",
+    "dtype": "float64",
+    "missing_rate": 2.7425121676860406e-05
+  },
+  {
+    "column": "delinq_amnt",
+    "dtype": "float64",
+    "missing_rate": 2.7425121676860406e-05
+  },
+  {
+    "column": "annual_inc",
+    "dtype": "float64",
+    "missing_rate": 1.636660487167476e-05
+  },
+  {
+    "column": "zip_code",
+    "dtype": "object",
+    "missing_rate": 1.5039582855052482e-05
+  },
+  {
+    "column": "purpose",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "issue_d",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "url",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "pymnt_plan",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "sub_grade",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "funded_amnt",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "loan_status",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "loan_amnt",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "installment",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "int_rate",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "debt_settlement_flag",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "verification_status",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "grade",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "term",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "disbursement_method",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "home_ownership",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "funded_amnt_inv",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "application_type",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "hardship_flag",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "addr_state",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "last_fico_range_low",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "last_fico_range_high",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "last_pymnt_amnt",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "collection_recovery_fee",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "recoveries",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "total_rec_late_fee",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "total_rec_int",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "total_rec_prncp",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "total_pymnt_inv",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "total_pymnt",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "out_prncp_inv",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "out_prncp",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "initial_list_status",
+    "dtype": "object",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "policy_code",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "revol_bal",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "fico_range_high",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "fico_range_low",
+    "dtype": "float64",
+    "missing_rate": 1.4597242182845055e-05
+  },
+  {
+    "column": "id",
+    "dtype": "object",
+    "missing_rate": 0.0
+  }
+]
