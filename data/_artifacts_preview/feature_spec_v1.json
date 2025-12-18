@@ -283,12 +283,46 @@
         "shift_for_transformation": 0.0,
         "skewness": 1.002478130365364
       },
+      "installment_to_income": {
+        "availability": "inference_time",
+        "derivation": {
+          "clip": {
+            "max": null,
+            "min": 0.0
+          },
+          "denominator": "annual_inc",
+          "method": "ratio",
+          "numerator": "installment",
+          "zero_division": "null"
+        },
+        "notes": "Monthly payment burden relative to reported annual income",
+        "planned_transformation": "none",
+        "source": [
+          "installment",
+          "annual_inc"
+        ],
+        "type": "derived"
+      },
       "int_rate": {
         "min_value": 5.31,
         "missing_rate": 0.0,
         "planned_transformation": "none",
         "shift_for_transformation": 0.0,
         "skewness": 0.7680447823837451
+      },
+      "loan_age_months": {
+        "availability": "inference_time",
+        "derivation": {
+          "method": "months_since",
+          "reference_date": "prediction_time",
+          "rounding": "floor"
+        },
+        "notes": "Computed as full months elapsed since loan issue date",
+        "planned_transformation": "none",
+        "source": [
+          "issue_d"
+        ],
+        "type": "derived"
       },
       "loan_amnt": {
         "min_value": 500.0,
@@ -500,6 +534,18 @@
         "shift_for_transformation": 1e-06,
         "skewness": 3.3727148080672076
       },
+      "recent_credit_inquiries_6m": {
+        "availability": "inference_time",
+        "derivation": {
+          "method": "identity"
+        },
+        "notes": "Renamed for semantic clarity; no transformation applied",
+        "planned_transformation": "none",
+        "source": [
+          "inq_last_6mths"
+        ],
+        "type": "rename"
+      },
       "revol_bal": {
         "min_value": 0.0,
         "missing_rate": 0.0,
@@ -643,8 +689,8 @@
     }
   },
   "freeze": {
-    "created_at": "2025-12-16T02:02:17.901881+00:00",
-    "spec_hash_md5": "9559dba456cb4daf81c1412ad88f5c86",
+    "created_at": "2025-12-17T19:48:31.974455+00:00",
+    "spec_hash_md5": "4510e26a43f9a028fb2aa5aa8c65c29d",
     "target_hash_md5": "2cffb60f71c9c857a47da555b72333dd"
   },
   "numerical_strategy_rules": {
