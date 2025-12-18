@@ -1,180 +1,120 @@
 """
 SHAP utilities for per-instance explanations.
 
-This module:
-- Loads the trained pipeline (preprocess + XGBoost model)
-- Builds a TreeExplainer with a background sample
-- Provides explain_instance() to return top-N feature contributions
+Design goals:
+- Serving-safe: no dependency on training scripts or full dataset loading.
+- Bundle-based: uses PD_MODEL_DIR (same as API) to locate model + background.
+- Best-effort: SHAP is optional and may be disabled in production.
 """
 
 from __future__ import annotations
 
-import os
+import logging
 from functools import lru_cache
-from typing import Dict, List
+from pathlib import Path
+from typing import Dict, List, Tuple
 
-import joblib
 import pandas as pd
 import shap
 
-from src.config import MODELS_DIR
 from src.features.transforms import add_domain_features
-from src.models.train import (
-    MODEL_FILE,
-    load_feature_data,
-    time_based_split,
-)
+from src.serving.registry import enforce_feature_contract, load_bundle
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
+logger = logging.getLogger(__name__)
+
+# Optional: if present in the bundle, we use it as background for SHAP
+DEFAULT_BG_FILENAME = "shap_background.parquet"
 
 
 @lru_cache(maxsize=1)
-def _load_pipeline():
-    """Load the trained sklearn Pipeline (preprocess + model) once per process."""
-    model_path = os.path.join(MODELS_DIR, MODEL_FILE)
-    if not os.path.exists(model_path):
-        msg = f"Model artifact not found at {model_path}. Train the model first."
-        raise FileNotFoundError(msg)
-
-    pipeline = joblib.load(model_path)
-    if "preprocess" not in pipeline.named_steps or "model" not in pipeline.named_steps:
-        msg = "Expected pipeline with 'preprocess' and 'model' steps."
-        raise ValueError(msg)
-
-    return pipeline
+def _load_bundle_cached():
+    return load_bundle()
 
 
 @lru_cache(maxsize=1)
-def _build_explainer(num_background: int = 1000):
+def _load_background_df(bg_filename: str = DEFAULT_BG_FILENAME, n: int = 500) -> pd.DataFrame:
+    bundle = _load_bundle_cached()
+    bg_path = Path(bundle.model_dir) / bg_filename
+
+    if not bg_path.exists():
+        raise FileNotFoundError(
+            f"SHAP background not found at {bg_path}. "
+            "Either add it to the model bundle at training time or disable SHAP."
+        )
+
+    df_bg = pd.read_parquet(bg_path)
+    if len(df_bg) > n:
+        df_bg = df_bg.sample(n, random_state=0)
+
+    # Apply same domain features + contract enforcement as inference
+    df_bg = add_domain_features(df_bg)
+    if "issue_d" in df_bg.columns:
+        df_bg = df_bg.drop(columns=["issue_d"])
+
+    df_bg = enforce_feature_contract(df_bg, bundle.feature_spec)
+    return df_bg
+
+
+def _predict_proba_1(model, X: pd.DataFrame):
+    """Predict probability of class 1 for SHAP explainers."""
+    return model.predict_proba(X)[:, 1]
+
+
+@lru_cache(maxsize=1)
+def _build_explainer() -> Tuple[shap.Explainer, List[str]]:
     """
-    Build and cache a SHAP TreeExplainer.
+    Build and cache a SHAP explainer.
 
-    Uses a background sample drawn from the time-based training split, then
-    transformed through the same preprocessor used at train time.
+    Notes:
+    - TreeExplainer is great for XGBoost; may not be reliable for sklearn HGB.
+    - We use shap.Explainer with a prediction function for broad compatibility.
     """
-    pipeline = _load_pipeline()
-    preprocessor = pipeline.named_steps["preprocess"]
-    model = pipeline.named_steps["model"]
+    bundle = _load_bundle_cached()
+    model = bundle.model
 
-    # Load feature data and use training portion as background
-    X, y, dates = load_feature_data()
-    X_train, _, _, _ = time_based_split(X, y, dates, train_fraction=0.8)
+    X_bg = _load_background_df()
+    feature_names = list(X_bg.columns)
 
-    # Apply domain feature engineering
-    X_train = add_domain_features(X_train)
-
-    # Drop date column if present
-    if "issue_d" in X_train.columns:
-        X_train = X_train.drop(columns=["issue_d"])
-
-    # Sample background rows
-    if len(X_train) > num_background:
-        X_bg = X_train.sample(num_background, random_state=0)
-    else:
-        X_bg = X_train.copy()
-
-    # Transform into model feature space
-    X_bg_trans = preprocessor.transform(X_bg)
-
-    # Convert to dense array if sparse (SHAP TreeExplainer has issues with sparse matrices)
-    if hasattr(X_bg_trans, "toarray"):
-        X_bg_trans = X_bg_trans.toarray()
-
-    # Get feature names after preprocessing (handles OHE)
-    try:
-        feature_names = preprocessor.get_feature_names_out()
-    except AttributeError:
-        feature_names = [f"f_{i}" for i in range(X_bg_trans.shape[1])]
-
-    explainer = shap.TreeExplainer(
-        model,
-        data=X_bg_trans,
-        feature_names=feature_names,
-        feature_perturbation="interventional",
+    # Use the unified high-level API for broad compatibility.
+    explainer = shap.Explainer(
+        lambda X: _predict_proba_1(model, pd.DataFrame(X, columns=feature_names)), X_bg
     )
+
     return explainer, feature_names
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
-def explain_instance(
-    raw_row: pd.DataFrame,
-    top_n: int = 5,
-) -> List[Dict[str, float]]:
+def explain_instance(raw_row: pd.DataFrame, top_n: int = 5) -> List[Dict[str, float]]:
     """
-    Compute SHAP-based feature contributions for a single instance.
+    Compute SHAP feature contributions for a single instance (best-effort).
 
-    Parameters
-    ----------
-    raw_row:
-        A single-row DataFrame containing the *raw input features* in the same
-        format used at training time (before preprocessing). This is typically
-        built from the LoanApplication payload in the API layer.
-
-    top_n:
-        Number of top features (by absolute SHAP value) to return.
-
-    Returns
-    -------
-    List[Dict[str, float]]:
-        List of dictionaries like:
-        [
-            {"feature": "loan_to_income", "shap_value": -0.12},
-            {"feature": "grade_C", "shap_value": 0.08},
-            ...
-        ]
+    raw_row: single-row DataFrame of *raw input features* (pre-domain-features).
     """
     if not isinstance(raw_row, pd.DataFrame):
         raise TypeError("raw_row must be a pandas DataFrame with a single row.")
-
     if len(raw_row) != 1:
         raise ValueError(f"Expected raw_row with exactly 1 row, got {len(raw_row)}")
 
-    pipeline = _load_pipeline()
-    explainer, feature_names = _build_explainer()
+    bundle = _load_bundle_cached()
 
-    preprocessor = pipeline.named_steps["preprocess"]
-
-    # Apply domain feature engineering
+    # Prepare row as in inference
     X_row = add_domain_features(raw_row.copy())
-
-    # Drop date column if present (API typically won't send it, but be safe)
     if "issue_d" in X_row.columns:
         X_row = X_row.drop(columns=["issue_d"])
 
-    # Transform into model feature space
-    X_trans = preprocessor.transform(X_row)
+    X_row = enforce_feature_contract(X_row, bundle.feature_spec)
 
-    # Convert to dense array if sparse (SHAP TreeExplainer has issues with sparse matrices)
-    if hasattr(X_trans, "toarray"):
-        X_trans = X_trans.toarray()
+    explainer, feature_names = _build_explainer()
 
     # Compute SHAP values
-    shap_values = explainer.shap_values(X_trans)
+    shap_values = explainer(X_row)
 
-    # For binary classification, SHAP may return a list [class0, class1]; pick class1
-    if isinstance(shap_values, list):
-        shap_values = shap_values[1]
+    # shap_values.values shape: (n_samples, n_features)
+    vals = shap_values.values[0]
 
-    # Single row → index 0
-    shap_row = shap_values[0]
-
-    # Pair feature names with SHAP values
     contributions = [
-        {"feature": name, "shap_value": float(val)}
-        for name, val in zip(feature_names, shap_row, strict=True)
+        {"feature": str(name), "shap_value": float(val)}
+        for name, val in zip(feature_names, vals, strict=True)
     ]
 
-    # Sort by absolute contribution magnitude
-    contributions_sorted = sorted(
-        contributions,
-        key=lambda d: abs(d["shap_value"]),
-        reverse=True,
-    )
-
+    contributions_sorted = sorted(contributions, key=lambda d: abs(d["shap_value"]), reverse=True)
     return contributions_sorted[:top_n]
