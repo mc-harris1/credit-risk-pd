@@ -104,32 +104,35 @@ def _infer_model_features(
 
 def build_engineered_features(cfg: BuildFeaturesConfig) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     if not cfg.input_path.exists():
-        raise FileNotFoundError(f"Input file not found: {cfg.input_path}")
+        interim = cfg.input_path.parent
+        contents = []
+        if interim.exists():
+            contents = sorted(p.name for p in interim.iterdir())[:50]
+        raise FileNotFoundError(
+            f"Input file not found: {cfg.input_path}\n"
+            f"Did you run preprocess?\n"
+            f"Interim dir: {interim} (exists={interim.exists()})\n"
+            f"Interim contents (first 50): {contents}"
+        )
 
     df = pd.read_parquet(cfg.input_path)
     if df.empty:
         raise ValueError("Input dataframe is empty.")
 
+    # Apply domain features. Target is expected to already exist from preprocess.
     df = add_domain_features(df)
 
-    # Ensure target exists (robustness for CI + future preprocess tweaks)
     if cfg.target_col not in df.columns:
-        if "loan_status" in df.columns and cfg.target_col == "default":
-            default_statuses = {
-                "Charged Off",
-                "Default",
-                "Late (31-120 days)",
-                "In Grace Period",
-                "Late (16-30 days)",
-            }
-            df[cfg.target_col] = df["loan_status"].isin(default_statuses).astype(int)
-            LOGGER.info("Derived target '%s' from loan_status mapping.", cfg.target_col)
-        else:
-            raise KeyError(f"Expected target column '{cfg.target_col}' to exist after FE.")
+        raise KeyError(
+            f"Expected target column '{cfg.target_col}' to exist after FE.\n"
+            "Preprocess should define the target. If you intended to derive it here, "
+            "move target-creation logic into preprocess for a single source of truth."
+        )
 
     if cfg.date_col not in df.columns:
         raise KeyError(f"Expected date column '{cfg.date_col}' to exist after FE.")
 
+    # Encoder summaries are produced elsewhere in your pipeline; keep empty if not available here.
     extra_meta: Dict[str, Any] = {
         "fitted_encoder_summaries": {"one_hot": {}, "frequency": {}},
     }
@@ -147,7 +150,7 @@ def write_engineered_features_and_manifest(cfg: BuildFeaturesConfig) -> Dict[str
     payload: Dict[str, Any] = {
         "manifest_version": cfg.manifest_version,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        # Paths
+        # Paths (absolute + repo-relative when possible)
         "input_path": str(cfg.input_path),
         "input_path_rel": _try_rel(cfg.input_path, DATA_DIR),
         "output_path": str(cfg.output_path),
@@ -171,7 +174,7 @@ def write_engineered_features_and_manifest(cfg: BuildFeaturesConfig) -> Dict[str
         "column_roles_path_rel": _try_rel(cfg.column_roles_path, DATA_DIR)
         if cfg.column_roles_path.exists()
         else None,
-        # Split skeleton
+        # Split skeleton (cutoff_date can be filled by train later)
         "split": {
             "strategy": cfg.split_strategy,
             "train_fraction": float(cfg.train_fraction),

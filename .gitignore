@@ -1,174 +1,77 @@
-############################
-# Python bytecode / caches
-############################
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
 
-############################
-# Virtual environments
-############################
-.venv/
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.env
+.envrc
+.venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
 
-############################
-# Packaging / build artifacts
-############################
-build/
-dist/
-*.egg-info/
-.eggs/
-.installed.cfg
-*.egg
-MANIFEST
-
-############################
-# Test / coverage outputs
-############################
-htmlcov/
-coverage.xml
-.coverage
-.coverage.*
-.pytest_cache/
-.tox/
-.nox/
-nosetests.xml
-*.cover
-*.py.cover
-
-############################
-# Logs
-############################
-*.log
-
-############################
-# Jupyter
-############################
-.ipynb_checkpoints/
-
-############################
-# IDEs / editors
-############################
-.idea/
-.vscode/
-.spyderproject
-.spyproject
-.ropeproject
-
-############################
-# Static analysis / linters
-############################
-.mypy_cache/
-.dmypy.json
-.pyre/
-.pytype/
+# Ruff
 .ruff_cache/
 
-############################
-# Environment / secrets
-############################
-.env
-.envrc
-.pypirc
+# Streamlit
 .streamlit/secrets.toml
 
-############################
-# OS files
-############################
-.DS_Store
-
-############################
-# Data (generated / large)
-############################
-# Raw data (never commit large CSVs)
-data/raw/
-
-# Processed & interim data (reproducible)
-data/interim/
-data/processed/
-
-############################
-# ML artifacts & runs
-############################
-# Training / eval / explain outputs
-data/artifacts/runs/
-data/artifacts/*_runs/
-data/artifacts/eval_runs/
-
-# Model binaries (rebuildable)
-models/bundles/**/model.joblib
-models/bundles/**/*.pkl
-models/bundles/**/*.joblib
-
-############################
-# Keep these data artifacts tracked
-############################
-!data/artifacts/*.json
-!data/artifacts/**/*.json
-
-############################
-# Misc ML artifacts
-############################
-*.pkl
-*.joblib
-*.h5
-*.onnx
-
-############################
-# Docker
-############################
-*.log
-docker/*.tar
-
-############################
-# UV / PDM / Pixi
-############################
-.uv/
-.pdm-python
-.pdm-build/
-.pixi/
-__pypackages__/
-
-############################
-# Marimo
-############################
-marimo/_static/
-marimo/_lsp/
-__marimo__/
-
-# Coverage / test outputs
-htmlcov/
-coverage.xml
-.coverage
-.coverage.*
-
-# Python caches
-__pycache__/
-*.py[codz]
-
-# Envs
-.venv/
-venv/
-env/
-ENV/
-
-# Data
-data/raw/
-data/interim/
-data/processed/
-
-# Run artifacts
-data/artifacts/runs/
-
-# Model binaries
-*.joblib
+# Data files (keep small toy samples if needed; otherwise ignore all)
+*.csv
+*.parquet
 *.pkl
 
-# Keep JSON artifacts/specs
-!data/artifacts/**/*.json
-!models/bundles/**/metadata.json
-!models/bundles/**/feature_spec*.json
+# Keep your repo’s canonical raw sources if you intentionally track them (uncomment if desired)
+# !data/raw/*.csv
+
+# Pipeline run outputs
+data/artifacts/runs/
+
+# Model outputs (bundles are artifacts)
+models/bundles/
+models/artifacts/
+models/metadata/

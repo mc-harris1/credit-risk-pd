@@ -12,6 +12,11 @@ from src.data.preprocess import (
     TARGET_COL,
 )
 
+# unchanged imports omitted for brevity
+
+DEFAULT_OUTPUT_FILE = "loans_cleaned.parquet"
+DEFAULT_PATTERN_CONTAINS = "_2007_to_2018Q4"
+
 
 class TestPreprocessConstants:
     """Tests for preprocessing configuration constants."""

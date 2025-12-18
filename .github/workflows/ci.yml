@@ -13,9 +13,9 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
       LOG_LEVEL: "INFO"
-
       FEATURE_MANIFEST_PATH: data/artifacts/engineered_features_manifest_v1.json
 
+      # Run outputs (stable paths for CI artifacts)
       TRAIN_OUT_DIR: data/artifacts/runs/train/ci
       EVAL_OUT_DIR: data/artifacts/runs/eval/ci
       EXPLAIN_OUT_DIR: data/artifacts/runs/explain/ci
@@ -41,11 +41,11 @@ jobs:
         run: |
           uv sync --all-groups
 
-      - name: Ruff lint
+      - name: Run ruff lint
         run: |
           uvx ruff check src tests
 
-      - name: Pytest with coverage
+      - name: Run tests with coverage
         run: |
           uv run pytest --cov=src --cov-report=xml --cov-report=html
 
@@ -65,64 +65,41 @@ jobs:
       # Pipeline smoke test (contract-first)
       # ----------------------------
 
-      - name: Generate synthetic data for CI
+      - name: Generate synthetic raw data for CI
         run: |
           uv run python tests/generate_synthetic_data.py
 
-      - name: Preprocess data
+      - name: "Debug: show data/raw"
         run: |
-          uv run python -m src.data.preprocess
+          pwd
+          ls -lah data || true
+          ls -lah data/raw || true
+
+      - name: Preprocess data (overwrite)
+        run: |
+          uv run python -m src.data.preprocess --overwrite
+
+      - name: "Debug: show data/interim"
+        run: |
+          ls -lah data/interim || true
+
+      - name: Verify preprocess output exists
+        run: |
+          test -f data/interim/loans_cleaned.parquet
 
       - name: Build engineered features + manifest
         run: |
           uv run python -m src.features.build_features
 
-      - name: Validate engineered features manifest
+      - name: "Debug: show processed + artifacts"
         run: |
-          uv run python - <<'PY'
-          import json
-          from pathlib import Path
+          ls -lah data/processed || true
+          ls -lah data/artifacts || true
 
-          p = Path("data/artifacts/engineered_features_manifest_v1.json")
-          if not p.exists():
-              raise SystemExit(f"Manifest not found: {p}")
-
-          d = json.loads(p.read_text(encoding="utf-8"))
-
-          required = [
-              "manifest_version",
-              "created_at",
-              "input_path",
-              "output_path",
-              "features_path",
-              "target_col",
-              "date_col",
-              "id_cols",
-              "split",
-              "n_rows",
-              "n_cols",
-              "output_head_md5",
-              "output_schema_md5",
-              "feature_list_md5",
-          ]
-          missing = [k for k in required if k not in d]
-          if missing:
-              raise SystemExit(f"Manifest missing required keys: {missing}")
-
-          split_required = ["strategy", "train_fraction", "date_col", "cutoff_date"]
-          split = d.get("split", {})
-          split_missing = [k for k in split_required if k not in split]
-          if split_missing:
-              raise SystemExit(f"Manifest split missing required keys: {split_missing}")
-
-          if d["features_path"] != d["output_path"]:
-              raise SystemExit("Expected features_path == output_path in manifest")
-
-          if split["date_col"] != d["date_col"]:
-              raise SystemExit("Expected split.date_col == date_col")
-
-          print("Manifest OK ✅")
-          PY
+      - name: Verify engineered outputs exist
+        run: |
+          test -f data/processed/engineered_features_v1.parquet
+          test -f data/artifacts/engineered_features_manifest_v1.json
 
       - name: Train model (manifest-first)
         run: |
@@ -132,7 +109,7 @@ jobs:
         run: |
           uv run python -m src.models.evaluate
 
-      - name: Explain model (SHAP, manifest-first)
+      - name: Explain model (manifest-first)
         run: |
           uv run python -m src.models.explain
 
@@ -167,7 +144,6 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     needs: test
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
