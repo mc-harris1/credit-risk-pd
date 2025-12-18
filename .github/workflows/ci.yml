@@ -9,6 +9,22 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    env:
+      PYTHONUNBUFFERED: "1"
+      LOG_LEVEL: "INFO"
+
+      FEATURE_MANIFEST_PATH: data/artifacts/engineered_features_manifest_v1.json
+
+      TRAIN_OUT_DIR: data/artifacts/runs/train/ci
+      EVAL_OUT_DIR: data/artifacts/runs/eval/ci
+      EXPLAIN_OUT_DIR: data/artifacts/runs/explain/ci
+      TRAIN_RUN_DIR: data/artifacts/runs/train/ci
+
+      TARGET_COL: default
+      DATE_COL: issue_d
+      TRAIN_FRACTION: "0.8"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -25,22 +41,15 @@ jobs:
         run: |
           uv sync --all-groups
 
-      - name: Run ruff lint
+      - name: Ruff lint
         run: |
           uvx ruff check src tests
 
-      - name: "Debug: print Python info"
-        run: |
-          echo "--- python version (uv run) ---"
-          uv run python -V || python -V
-          echo "--- sys.path (first 10 entries) ---"
-          uv run python -c "import sys; import json; print(json.dumps(sys.path[:10]))" || python -c "import sys, json; print(json.dumps(sys.path[:10]))"
-
-      - name: Run tests with coverage
+      - name: Pytest with coverage
         run: |
           uv run pytest --cov=src --cov-report=xml --cov-report=html
 
-      - name: Upload coverage XML (for CI tools)
+      - name: Upload coverage XML
         uses: actions/upload-artifact@v4
         with:
           name: coverage-xml
@@ -52,8 +61,11 @@ jobs:
           name: coverage-html
           path: htmlcov/
 
-      # --- NEW: model evaluation ---
-      - name: Generate synthetic data for evaluation
+      # ----------------------------
+      # Pipeline smoke test (contract-first)
+      # ----------------------------
+
+      - name: Generate synthetic data for CI
         run: |
           uv run python tests/generate_synthetic_data.py
 
@@ -61,40 +73,101 @@ jobs:
         run: |
           uv run python -m src.data.preprocess
 
-      - name: Build engineered features
+      - name: Build engineered features + manifest
         run: |
           uv run python -m src.features.build_features
 
-      - name: Tune hyperparameters
+      - name: Validate engineered features manifest (required keys)
         run: |
-          uv run python -m src.models.tune
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
 
-      - name: Train model with best hyperparameters
+          p = Path("data/artifacts/engineered_features_manifest_v1.json")
+          if not p.exists():
+              raise SystemExit(f"Manifest not found: {p}")
+
+          d = json.loads(p.read_text(encoding="utf-8"))
+
+          required = [
+              "manifest_version",
+              "created_at",
+              "input_path",
+              "output_path",
+              "features_path",
+              "target_col",
+              "date_col",
+              "id_cols",
+              "split",
+              "n_rows",
+              "n_cols",
+              "output_head_md5",
+              "output_schema_md5",
+              "feature_list_md5",
+          ]
+          missing = [k for k in required if k not in d]
+          if missing:
+              raise SystemExit(f"Manifest missing required keys: {missing}")
+
+          split_required = ["strategy", "train_fraction", "date_col", "cutoff_date"]
+          split = d.get("split", {})
+          split_missing = [k for k in split_required if k not in split]
+          if split_missing:
+              raise SystemExit(f"Manifest split missing required keys: {split_missing}")
+
+          if d["features_path"] != d["output_path"]:
+              raise SystemExit("Expected features_path == output_path in manifest")
+
+          if split["date_col"] != d["date_col"]:
+              raise SystemExit("Expected split.date_col == date_col")
+
+          print("Manifest OK ✅")
+          PY
+
+      - name: Train model (manifest-first)
         run: |
           uv run python -m src.models.train
 
-      - name: Evaluate trained model
+      - name: Evaluate model (manifest-first)
         run: |
           uv run python -m src.models.evaluate
 
-      - name: Upload evaluation metrics
-        uses: actions/upload-artifact@v4
-        with:
-          name: evaluation-metrics
-          path: models/metadata/evaluation_metrics.json
+      - name: Explain model (SHAP, manifest-first)
+        run: |
+          uv run python -m src.models.explain
 
-      - name: Upload evaluation plots
+      # ----------------------------
+      # Upload artifacts
+      # ----------------------------
+
+      - name: Upload engineered features manifest
         uses: actions/upload-artifact@v4
         with:
-          name: evaluation-plots
-          path: |
-            models/metadata/roc_curve.png
-            models/metadata/pr_curve.png
-            models/metadata/calibration_curve.png
+          name: engineered-features-manifest
+          path: data/artifacts/engineered_features_manifest_v1.json
+
+      - name: Upload train run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: train-run
+          path: data/artifacts/runs/train/ci/
+
+      - name: Upload eval run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-run
+          path: data/artifacts/runs/eval/ci/
+
+      - name: Upload explain run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: explain-run
+          path: data/artifacts/runs/explain/ci/
 
   docker-build:
     runs-on: ubuntu-latest
     needs: test
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

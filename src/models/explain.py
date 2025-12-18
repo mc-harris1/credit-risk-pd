@@ -46,7 +46,9 @@ class ExplainConfig:
     model_path: Optional[Path] = None
 
     # Output
-    out_dir: Path = Path(ARTIFACTS_DIR) / "explain_runs" / datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir: Path = (
+        Path(ARTIFACTS_DIR) / "runs" / "explain" / datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
 
     # SHAP sampling
     num_background: int = 1000

@@ -51,7 +51,7 @@ class EvalConfig:
     model_path: Optional[Path] = None
 
     # Output
-    out_dir: Path = Path(ARTIFACTS_DIR) / "eval_runs" / datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir: Path = Path(ARTIFACTS_DIR) / "runs" / "eval" / datetime.now().strftime("%Y%m%d_%H%M%S")
 
     threshold: float = 0.50
     calib_bins: int = 10

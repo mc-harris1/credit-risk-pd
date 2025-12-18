@@ -51,7 +51,9 @@ class TrainConfig:
     train_fraction: float = 0.80
 
     # Output
-    out_dir: Path = Path(ARTIFACTS_DIR) / "train_runs" / datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_dir: Path = (
+        Path(ARTIFACTS_DIR) / "runs" / "train" / datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
 
     # Model params
     C: float = 1.0
