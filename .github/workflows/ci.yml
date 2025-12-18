@@ -37,7 +37,7 @@ jobs:
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v7
 
-      - name: Install dependencies and package
+      - name: Install dependencies
         run: |
           uv sync --all-groups
 
@@ -77,7 +77,7 @@ jobs:
         run: |
           uv run python -m src.features.build_features
 
-      - name: Validate engineered features manifest (required keys)
+      - name: Validate engineered features manifest
         run: |
           uv run python - <<'PY'
           import json

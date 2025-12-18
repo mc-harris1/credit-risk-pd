@@ -21,11 +21,6 @@ from src.features.transforms import add_domain_features
 LOGGER = logging.getLogger(__name__)
 
 
-# -----------------------------
-# Config
-# -----------------------------
-
-
 @dataclass(frozen=True)
 class BuildFeaturesConfig:
     input_path: Path = INTERIM_DATA_DIR / "loans_cleaned.parquet"
@@ -50,11 +45,6 @@ class BuildFeaturesConfig:
     train_fraction: float = 0.80
 
     log_level: str = "INFO"
-
-
-# -----------------------------
-# Logging / IO
-# -----------------------------
 
 
 def setup_logging(level: str) -> None:
@@ -86,13 +76,11 @@ def _md5_text(text: str) -> str:
 
 
 def _schema_md5(df: pd.DataFrame) -> str:
-    # Stable hash over column order + dtype strings
     parts = [f"{c}:{str(df[c].dtype)}" for c in df.columns]
     return _md5_text("|".join(parts))
 
 
 def _head_md5(df: pd.DataFrame, n: int = 50) -> str:
-    # Hash a small stable sample of values (head) for sanity checks
     head = df.head(n).to_csv(index=False)
     return _md5_text(head)
 
@@ -114,17 +102,7 @@ def _infer_model_features(
     return [c for c in df.columns if c not in drop]
 
 
-# -----------------------------
-# Feature engineering wrapper
-# -----------------------------
-
-
 def build_engineered_features(cfg: BuildFeaturesConfig) -> Tuple[pd.DataFrame, Dict[str, Any]]:
-    """
-    This function is intentionally a thin wrapper around your existing FE logic.
-    Keep your real transformations here; the important change in this refactor
-    is the manifest writing (contract + hashes + links).
-    """
     if not cfg.input_path.exists():
         raise FileNotFoundError(f"Input file not found: {cfg.input_path}")
 
@@ -132,27 +110,26 @@ def build_engineered_features(cfg: BuildFeaturesConfig) -> Tuple[pd.DataFrame, D
     if df.empty:
         raise ValueError("Input dataframe is empty.")
 
-    # --- Your existing feature engineering steps should already produce:
-    # - target column cfg.target_col
-    # - date column cfg.date_col
-    # - engineered columns
-    #
-    # If your pipeline already did target encoding / OHE inside build_features,
-    # keep it. Here, we only ensure domain features are applied consistently.
     df = add_domain_features(df)
 
-    # Create default target if loan_status exists and target doesn't
-    if cfg.target_col not in df.columns and "loan_status" in df.columns:
-        default_statuses = {"Charged Off", "Default", "Late (31-120 days)", "In Grace Period"}
-        df[cfg.target_col] = df["loan_status"].isin(default_statuses).astype(int)
-
-    # Minimal sanity checks
+    # Ensure target exists (robustness for CI + future preprocess tweaks)
     if cfg.target_col not in df.columns:
-        raise KeyError(f"Expected target column '{cfg.target_col}' to exist after FE.")
+        if "loan_status" in df.columns and cfg.target_col == "default":
+            default_statuses = {
+                "Charged Off",
+                "Default",
+                "Late (31-120 days)",
+                "In Grace Period",
+                "Late (16-30 days)",
+            }
+            df[cfg.target_col] = df["loan_status"].isin(default_statuses).astype(int)
+            LOGGER.info("Derived target '%s' from loan_status mapping.", cfg.target_col)
+        else:
+            raise KeyError(f"Expected target column '{cfg.target_col}' to exist after FE.")
+
     if cfg.date_col not in df.columns:
         raise KeyError(f"Expected date column '{cfg.date_col}' to exist after FE.")
 
-    # Encoder summaries are produced elsewhere in your pipeline; keep empty if not available here.
     extra_meta: Dict[str, Any] = {
         "fitted_encoder_summaries": {"one_hot": {}, "frequency": {}},
     }
@@ -163,15 +140,14 @@ def write_engineered_features_and_manifest(cfg: BuildFeaturesConfig) -> Dict[str
     ensure_dir(cfg.output_path.parent)
 
     engineered_df, extra_meta = build_engineered_features(cfg)
-
     engineered_df.to_parquet(cfg.output_path, index=False)
 
-    # Manifest payload
     model_features = _infer_model_features(engineered_df, cfg.target_col, cfg.date_col, cfg.id_cols)
+
     payload: Dict[str, Any] = {
         "manifest_version": cfg.manifest_version,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        # Paths (absolute + repo-relative when possible)
+        # Paths
         "input_path": str(cfg.input_path),
         "input_path_rel": _try_rel(cfg.input_path, DATA_DIR),
         "output_path": str(cfg.output_path),
@@ -195,7 +171,7 @@ def write_engineered_features_and_manifest(cfg: BuildFeaturesConfig) -> Dict[str
         "column_roles_path_rel": _try_rel(cfg.column_roles_path, DATA_DIR)
         if cfg.column_roles_path.exists()
         else None,
-        # Split skeleton (cutoff_date can be filled by train later)
+        # Split skeleton
         "split": {
             "strategy": cfg.split_strategy,
             "train_fraction": float(cfg.train_fraction),
@@ -211,7 +187,7 @@ def write_engineered_features_and_manifest(cfg: BuildFeaturesConfig) -> Dict[str
         "feature_list_md5": _md5_text("|".join(model_features)),
         # Helpful peeks
         "created_cols_sample": model_features[:25],
-        # Extra metadata hook (encoder summaries etc.)
+        # Extra metadata hook
         **extra_meta,
     }
 
@@ -219,68 +195,6 @@ def write_engineered_features_and_manifest(cfg: BuildFeaturesConfig) -> Dict[str
     LOGGER.info("Wrote engineered features: %s", cfg.output_path)
     LOGGER.info("Wrote manifest: %s", cfg.manifest_path)
     return payload
-
-
-# -----------------------------
-# Flexible wrapper for testing
-# -----------------------------
-
-
-def build_features(
-    input_file: str | Path = "loans_cleaned.parquet",
-    output_file: str | Path = "engineered_features_v1.parquet",
-    input_dir: str | Path | None = None,
-    output_dir: str | Path | None = None,
-) -> pd.DataFrame:
-    """
-    Flexible wrapper for building engineered features.
-
-    Useful for testing and scripting. Reads from input_dir/input_file,
-    applies feature engineering, and writes to output_dir/output_file.
-
-    If input_dir or output_dir are None, uses INTERIM_DATA_DIR and PROCESSED_DATA_DIR respectively.
-
-    Returns:
-        The engineered features DataFrame.
-    """
-    # Resolve directories
-    in_dir = Path(input_dir) if input_dir else Path(INTERIM_DATA_DIR)
-    out_dir = Path(output_dir) if output_dir else Path(PROCESSED_DATA_DIR)
-
-    # Resolve file paths
-    input_path = in_dir / input_file
-    output_path = out_dir / output_file
-
-    # Ensure output directory exists
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Read input
-    if not input_path.exists():
-        raise FileNotFoundError(f"Input file not found: {input_path}")
-
-    df = pd.read_parquet(input_path)
-    if df.empty:
-        raise ValueError(f"Input dataframe from {input_path} is empty.")
-
-    # Apply feature engineering
-    df = add_domain_features(df)
-
-    # Create default target if loan_status exists
-    if "loan_status" in df.columns and "default" not in df.columns:
-        # Map loan status to binary default indicator
-        default_statuses = {"Charged Off", "Default", "Late (31-120 days)", "In Grace Period"}
-        df["default"] = df["loan_status"].isin(default_statuses).astype(int)
-
-    # Write output
-    df.to_parquet(output_path, index=False)
-    LOGGER.info("Wrote engineered features: %s", output_path)
-
-    return df
-
-
-# -----------------------------
-# CLI
-# -----------------------------
 
 
 def _env_path(name: str) -> Optional[Path]:
