@@ -21,9 +21,10 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from xgboost import XGBClassifier
 
 from src.config import METADATA_DIR, RANDOM_STATE
-from src.features.transforms import add_domain_features
-from src.models.train import (  # ok to keep if these are stable utilities
-    load_feature_data,
+from src.models.datasets import (
+    apply_domain_features_and_drop_date,
+    load_data_contract,
+    load_engineered_features,
     time_based_split,
 )
 
@@ -91,20 +92,14 @@ def hyperparam_grid() -> Dict[str, List[Any]]:
 
 
 def prepare_data(train_fraction: float) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
-    """
-    Load features and return time-based train/validation sets.
-    Applies domain feature engineering once (consistent with your current behavior).
-    """
-    X, y, dates = load_feature_data()
+    """Load engineered features and split/time-order consistently with train/eval."""
+
+    contract = load_data_contract()
+    X, y, dates = load_engineered_features(contract)
     X_train, X_val, y_train, y_val = time_based_split(X, y, dates, train_fraction=train_fraction)
 
-    X_train = add_domain_features(X_train)
-    X_val = add_domain_features(X_val)
-
-    # Drop the date column if still present
-    if "issue_d" in X_train.columns:
-        X_train = X_train.drop(columns=["issue_d"])
-        X_val = X_val.drop(columns=["issue_d"])
+    X_train = apply_domain_features_and_drop_date(X_train, date_col=contract.date_col)
+    X_val = apply_domain_features_and_drop_date(X_val, date_col=contract.date_col)
 
     return X_train, X_val, y_train, y_val
 
