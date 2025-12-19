@@ -75,6 +75,7 @@ select = [
 ignore = [
   "E203",
   "E501",
+  "B008", # python-bugbear specific
 ]
 
 [tool.ruff.format]
