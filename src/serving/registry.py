@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import joblib
+import numpy as np
 import pandas as pd
 
 
@@ -70,6 +71,7 @@ class ModelRegistry:
         self._model: Any = None
         self._metadata: Dict[str, Any] = {}
         self._feature_spec: Optional[Dict[str, Any]] = None
+        self._feature_mapper: Optional[FeatureMapper] = None
 
     @property
     def bundles_dir(self) -> Path:
@@ -101,6 +103,11 @@ class ModelRegistry:
             feature_spec_path=feature_spec_path if feature_spec_path.exists() else None,
             version=bundle_dir.name,
         )
+
+        if hasattr(self._model, "feature_names_in_"):
+            self._feature_mapper = FeatureMapper(list(self._model.feature_names_in_))
+        else:
+            self._feature_mapper = None
 
     def is_loaded(self) -> bool:
         return self._model is not None and self._bundle is not None
@@ -157,9 +164,163 @@ class ModelRegistry:
         return pd_val
 
     def predict_from_payload(self, application_dict: Dict[str, Any]) -> Tuple[float, pd.DataFrame]:
-        df = self.to_frame(application_dict)
+        """
+        Accept raw payload from the API, map it to the model's expected
+        preprocessed feature columns, then predict.
+        """
+        # Ensure model is loaded before inspecting feature names
+        if not self.is_loaded():
+            self.load()
+
+        df_raw = self.to_frame(application_dict)
+
+        if self._feature_mapper is not None:
+            df = self._feature_mapper.transform(df_raw)
+        else:
+            df = df_raw
+
         pd_val = self.predict_pd(df)
         return pd_val, df
+
+    # --- Helpers ---------------------------------------------------------
+
+    def _preprocess_raw(self, df_raw: pd.DataFrame, expected_feats: np.ndarray) -> pd.DataFrame:
+        """
+        Map raw request features to the engineered feature space the model expects.
+        This covers:
+          - annual_inc__log1p
+          - one-hot grade, sub_grade, home_ownership, term
+          - passes through dti and annual_inc
+          - fills missing engineered fields with 0/NaN (imputer will handle)
+        """
+        expected = list(expected_feats)
+        out = pd.DataFrame(np.zeros((len(df_raw), len(expected))), columns=expected)
+
+        def set_col(col, series):
+            if col in out.columns:
+                out[col] = series
+
+        raw = df_raw.iloc[0]
+
+        # Numeric direct
+        set_col("annual_inc", pd.Series([raw.get("annual_inc", np.nan)]))
+        set_col("dti", pd.Series([raw.get("dti", np.nan)]))
+        set_col("loan_amnt", pd.Series([raw.get("loan_amnt", np.nan)]))  # add this
+
+        # Derived numeric
+        if "annual_inc__log1p" in out.columns:
+            ann = raw.get("annual_inc", np.nan)
+            out["annual_inc__log1p"] = np.log1p(ann) if pd.notnull(ann) else np.nan
+
+        # Grade one-hot
+        grade_val = str(raw.get("grade", "")).strip()
+        grade_cols = [c for c in expected if c.startswith("grade_")]
+        if grade_cols:
+            if grade_val and f"grade_{grade_val}" in out.columns:
+                out[f"grade_{grade_val}"] = 1
+            elif "grade_<NA>" in out.columns:
+                out["grade_<NA>"] = 1
+
+        # Sub-grade one-hot
+        sub_grade_val = str(raw.get("sub_grade", "")).strip()
+        sub_grade_cols = [c for c in expected if c.startswith("sub_grade_")]
+        if sub_grade_cols:
+            if sub_grade_val and f"sub_grade_{sub_grade_val}" in out.columns:
+                out[f"sub_grade_{sub_grade_val}"] = 1
+
+        # Home ownership one-hot
+        ho_val = str(raw.get("home_ownership", "")).strip()
+        ho_cols = [c for c in expected if c.startswith("home_ownership_")]
+        if ho_cols:
+            if ho_val and f"home_ownership_{ho_val}" in out.columns:
+                out[f"home_ownership_{ho_val}"] = 1
+
+        # Term one-hot
+        term_val = str(raw.get("term", "")).strip()
+        term_cols = [c for c in expected if c.startswith("term_")]
+        if term_cols:
+            if term_val and f"term_{term_val}" in out.columns:
+                out[f"term_{term_val}"] = 1
+
+        # emp_length__target_mean – we cannot derive; leave NaN for imputer
+        if "emp_length__target_mean" in out.columns:
+            out["emp_length__target_mean"] = np.nan
+
+        # Additional engineered features seen in model
+        if "sub_grade__target_mean" in out.columns:
+            out["sub_grade__target_mean"] = 0.0  # no encoder at inference; imputer handles
+        if "loan_age_months" in out.columns:
+            out["loan_age_months"] = 0.0  # not provided by API; set to 0
+        if "int_rate" in out.columns:
+            out["int_rate"] = 0.0  # not provided by API; set to 0
+
+        return out
+
+
+class FeatureMapper:
+    """
+    Lightweight, stateless mapper to turn raw API inputs into the exact
+    engineered feature set expected by the trained model.
+    """
+
+    def __init__(self, expected_features: list[str]) -> None:
+        self.expected = expected_features
+        self.grade_cols = [c for c in expected_features if c.startswith("grade_")]
+        self.sub_grade_cols = [c for c in expected_features if c.startswith("sub_grade_")]
+        self.home_ownership_cols = [c for c in expected_features if c.startswith("home_ownership_")]
+        self.term_cols = [c for c in expected_features if c.startswith("term_")]
+
+    def transform(self, df_raw: pd.DataFrame) -> pd.DataFrame:
+        out = pd.DataFrame(np.zeros((len(df_raw), len(self.expected))), columns=self.expected)
+        raw = df_raw.iloc[0]
+
+        def set_col(col, val):
+            if col in out.columns:
+                out[col] = val
+
+        # Numeric pass-through
+        set_col("annual_inc", pd.Series([raw.get("annual_inc", np.nan)]))
+        set_col("dti", pd.Series([raw.get("dti", np.nan)]))
+        set_col("loan_amnt", pd.Series([raw.get("loan_amnt", np.nan)]))
+
+        # Numeric derived
+        if "annual_inc__log1p" in out.columns:
+            ann = raw.get("annual_inc", np.nan)
+            out["annual_inc__log1p"] = np.log1p(ann) if pd.notnull(ann) else np.nan
+
+        # One-hot: grade
+        gv = str(raw.get("grade", "")).strip()
+        if gv and f"grade_{gv}" in out.columns:
+            out[f"grade_{gv}"] = 1
+        elif "grade_<NA>" in out.columns:
+            out["grade_<NA>"] = 1
+
+        # One-hot: sub_grade
+        sg = str(raw.get("sub_grade", "")).strip()
+        if sg and f"sub_grade_{sg}" in out.columns:
+            out[f"sub_grade_{sg}"] = 1
+
+        # One-hot: home_ownership
+        ho = str(raw.get("home_ownership", "")).strip()
+        if ho and f"home_ownership_{ho}" in out.columns:
+            out[f"home_ownership_{ho}"] = 1
+
+        # One-hot: term
+        term = str(raw.get("term", "")).strip()
+        if term and f"term_{term}" in out.columns:
+            out[f"term_{term}"] = 1
+
+        # Engineered placeholders (imputer will handle NaN/0)
+        if "emp_length__target_mean" in out.columns:
+            out["emp_length__target_mean"] = np.nan
+        if "sub_grade__target_mean" in out.columns:
+            out["sub_grade__target_mean"] = np.nan
+        if "loan_age_months" in out.columns:
+            out["loan_age_months"] = 0.0
+        if "int_rate" in out.columns:
+            out["int_rate"] = 0.0
+
+        return out
 
 
 @lru_cache(maxsize=1)
