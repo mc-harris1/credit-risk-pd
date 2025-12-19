@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any, Optional
-
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -34,22 +32,12 @@ def _shap_error_handler(_, exc: ShapError):
     )
 
 
-def _risk_band_from_pd(pd_val: float) -> str:
-    """
-    Simple banding. Tune thresholds to match your business policy.
-    """
-    if pd_val < 0.10:
-        return "Low"
-    if pd_val < 0.25:
-        return "Medium"
-    return "High"
-
-
 @app.get("/health", response_model=HealthResponse)
 def health(registry: ModelRegistry = Depends(get_registry)) -> HealthResponse:
     try:
         loaded = registry.is_loaded()
         if not loaded:
+            # Try lazy load to give a meaningful health signal
             registry.load()
             loaded = True
     except Exception:
@@ -60,40 +48,22 @@ def health(registry: ModelRegistry = Depends(get_registry)) -> HealthResponse:
 
 @app.post("/predict", response_model=PredictionResponse)
 def predict(
-    payload: dict,
+    payload: dict,  # keep flexible; validate in schema layer below
     registry: ModelRegistry = Depends(get_registry),
 ) -> PredictionResponse:
+    """
+    Backwards/forwards compatible:
+    - Accept either {"loan_amnt": ...} or {"application": {...}}
+    """
     application = payload.get("application", payload)
 
     try:
+        # Pydantic schema validation
         from .schemas import LoanApplication
 
         app_model = LoanApplication.model_validate(application)
-
-        pd_val, df = registry.predict_from_payload(app_model.model_dump())
-        pd_val_f = float(pd_val)
-        risk_band = _risk_band_from_pd(pd_val_f)
-
-        top_factors: list[FeatureAttribution] = []
-        shap_error: Optional[str] = None
-
-        # ✅ Attempt SHAP and keep the error if it fails
-        try:
-            base_value, shap_vec = compute_shap_for_single_row(registry._model, df)  # noqa: SLF001
-            attr_dicts = format_top_attributions(df, shap_vec, top_k=10)
-            top_factors = [FeatureAttribution(**a) for a in attr_dicts]
-        except Exception as e:
-            shap_error = str(e)
-            top_factors = []
-
-        return PredictionResponse(
-            pd=pd_val_f,
-            model_version=registry.version(),
-            risk_band=risk_band,
-            top_factors=top_factors,
-            shap_error=shap_error,
-        )
-
+        pd_val, _df = registry.predict_from_payload(app_model.model_dump())
+        return PredictionResponse(pd=pd_val, model_version=registry.version())
     except HTTPException:
         raise
     except Exception as e:
@@ -107,7 +77,7 @@ def explain(
 ) -> ExplainResponse:
     pd_val, df = registry.predict_from_payload(req.application.model_dump())
 
-    meta: dict[str, Any] = {
+    meta = {
         "top_k": req.top_k,
         "note": "Attributions sorted by |shap_value| desc (class=1 probability).",
     }
@@ -121,12 +91,13 @@ def explain(
         attributions = [FeatureAttribution(**a) for a in attr_dicts]
         base_value = base_value_raw if req.include_base_value else None
     except Exception as e:
+        # best-effort response
         meta["explain_error"] = str(e)
         base_value = None
         attributions = []
 
     return ExplainResponse(
-        pd=float(pd_val),
+        pd=pd_val,
         model_version=registry.version(),
         base_value=base_value,
         attributions=attributions,

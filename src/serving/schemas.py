@@ -37,13 +37,9 @@ class PredictionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     pd: float = Field(..., ge=0.0, le=1.0)
-    model_version: Optional[str] = Field(default=None)
-
-    risk_band: str = Field(default="Unknown")
-    top_factors: List[FeatureAttribution] = Field(default_factory=list)
-
-    # add this so we can see why top_factors is empty
-    shap_error: Optional[str] = Field(default=None)
+    model_version: Optional[str] = Field(
+        default=None, description="Bundle/version identifier for reproducibility"
+    )
 
 
 class HealthResponse(BaseModel):
