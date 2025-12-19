@@ -1,48 +1,82 @@
-# Copyright (c) 2025 Mark Harris
-# Licensed under the MIT License. See LICENSE file in the project root.
+from __future__ import annotations
 
-from pydantic import BaseModel, Field
-from typing_extensions import Literal
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class LoanApplication(BaseModel):
     """
-    Input schema for PD scoring at origination.
+    Raw request schema. Keep this aligned with your Streamlit UI + docs.
 
-    Fields represent borrower- and loan-level information
-    available at decision time (PIT).
+    NOTE: You can expand this to match your full feature spec.
+    For MVP / tests, a small subset is usually enough.
     """
 
-    loan_amnt: float = Field(..., gt=0, description="Requested loan amount")
-    annual_inc: float = Field(..., gt=0, description="Annual income")
+    model_config = ConfigDict(extra="forbid")
 
-    int_rate: float | None = Field(default=10.0, ge=0.0, le=50.0, description="Interest rate (%)")
-    term: str | None = Field(default="36 months", description="Loan term (e.g., '36 months')")
-    dti: float | None = Field(
-        default=15.0, ge=0.0, le=100.0, description="Debt-to-income ratio (%)"
+    loan_amnt: float = Field(..., gt=0)
+    annual_inc: float = Field(..., gt=0)
+    term: str = Field(..., description='e.g. "36 months" or "60 months"')
+    home_ownership: str = Field(..., description="e.g. RENT, OWN, MORTGAGE")
+    grade: str = Field(..., min_length=1, max_length=2, description="e.g. A, B, C")
+    sub_grade: str = Field(..., min_length=2, max_length=3, description="e.g. B3")
+    dti: float = Field(..., ge=0)
+
+    @field_validator("term")
+    @classmethod
+    def normalize_term(cls, v: str) -> str:
+        v2 = v.strip()
+        # Allow "36 months" / "60 months" and also "36" / "60"
+        if v2.isdigit():
+            return f"{v2} months"
+        return v2
+
+
+class PredictionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pd: float = Field(..., ge=0.0, le=1.0)
+    model_version: Optional[str] = Field(
+        default=None, description="Bundle/version identifier for reproducibility"
     )
 
-    grade: str | None = Field(default="C", description="Credit grade")
-    sub_grade: str | None = Field(default="C1", description="Credit sub-grade")
-    emp_length: str | None = Field(default="5 years", description="Employment length")
-    home_ownership: str | None = Field(default="RENT", description="Home ownership status")
-    loan_status: str | None = Field(default=None, description="Loan status (ignored)")
 
-    issue_d: str | None = Field(
-        default=None,
-        description="Origination month (YYYY-MM). Used for logging/monitoring only.",
-    )
+class HealthResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-    class Config:
-        extra = "forbid"  # fail fast on unexpected fields
+    status: Literal["ok"] = "ok"
+    model_loaded: bool
+    model_version: Optional[str] = None
 
 
-class FeatureContribution(BaseModel):
+class ExplainRequest(BaseModel):
+    """
+    Explanation request.
+    - top_k controls how many features to return (sorted by |impact|)
+    - include_base_value is useful for additive explanations
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    application: LoanApplication
+    top_k: int = Field(default=15, ge=1, le=200)
+    include_base_value: bool = True
+
+
+class FeatureAttribution(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     feature: str
+    value: Any
     shap_value: float
 
 
-class ScoreResponse(BaseModel):
-    prob_default: float = Field(..., ge=0.0, le=1.0)
-    risk_band: Literal["Low", "Medium", "High"]
-    top_factors: list[FeatureContribution] = Field(default_factory=list)
+class ExplainResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pd: float = Field(..., ge=0.0, le=1.0)
+    model_version: Optional[str] = None
+    base_value: Optional[float] = None
+    attributions: List[FeatureAttribution]
+    meta: Dict[str, Any] = Field(default_factory=dict)

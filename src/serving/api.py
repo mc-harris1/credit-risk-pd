@@ -1,86 +1,105 @@
-# src/serving/api.py
 from __future__ import annotations
 
-import logging
-import os
-from functools import lru_cache
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 
-import pandas as pd
-from fastapi import FastAPI, HTTPException
+from .registry import ModelRegistry, ModelRegistryError, get_registry
+from .schemas import (
+    ExplainRequest,
+    ExplainResponse,
+    FeatureAttribution,
+    HealthResponse,
+    PredictionResponse,
+)
+from .shap_utils import ShapError, compute_shap_for_single_row, format_top_attributions
 
-from src.features.transforms import add_domain_features
-from src.serving.registry import load_bundle
-from src.serving.schemas import FeatureContribution, LoanApplication, ScoreResponse
-from src.serving.shap_utils import explain_instance
-
-logger = logging.getLogger(__name__)
-
-app = FastAPI(title="Credit Risk PD Scoring API")
-
-# In production, consider disabling SHAP by default to reduce latency/cost
-ENABLE_SHAP = os.getenv("ENABLE_SHAP", "false").lower() in {"1", "true", "yes"}
+app = FastAPI(title="Credit Risk PD API", version="1.0.0")
 
 
-@lru_cache(maxsize=1)
-def _get_bundle():
-    return load_bundle()  # uses PD_MODEL_DIR or latest bundle
+@app.exception_handler(ModelRegistryError)
+def _registry_error_handler(_, exc: ModelRegistryError):
+    return JSONResponse(
+        status_code=500,
+        content={"error": "model_registry_error", "detail": str(exc)},
+    )
 
 
-@lru_cache(maxsize=1)
-def _load_pipeline():
-    """
-    Backward-compatible loader used by tests; returns the fitted pipeline.
-    """
-    bundle = _get_bundle()
-    return bundle.model
+@app.exception_handler(ShapError)
+def _shap_error_handler(_, exc: ShapError):
+    return JSONResponse(
+        status_code=500,
+        content={"error": "shap_error", "detail": str(exc)},
+    )
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
+@app.get("/health", response_model=HealthResponse)
+def health(registry: ModelRegistry = Depends(get_registry)) -> HealthResponse:
     try:
-        _ = _load_pipeline()
-        return {"status": "ok"}
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Health check failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Model not available") from exc
+        loaded = registry.is_loaded()
+        if not loaded:
+            # Try lazy load to give a meaningful health signal
+            registry.load()
+            loaded = True
+    except Exception:
+        loaded = False
+
+    return HealthResponse(model_loaded=loaded, model_version=registry.version())
 
 
-@app.post("/predict", response_model=ScoreResponse)
-def predict(app_data: LoanApplication) -> ScoreResponse:
-    # Build 1-row DataFrame from request
-    df_row_raw = pd.DataFrame([app_data.model_dump()])
-
-    # Apply domain features (required before inference)
-    df_row = add_domain_features(df_row_raw)
-
-    # Drop date column (not used as feature)
-    if "issue_d" in df_row.columns:
-        df_row = df_row.drop(columns=["issue_d"])
+@app.post("/predict", response_model=PredictionResponse)
+def predict(
+    payload: dict,  # keep flexible; validate in schema layer below
+    registry: ModelRegistry = Depends(get_registry),
+) -> PredictionResponse:
+    """
+    Backwards/forwards compatible:
+    - Accept either {"loan_amnt": ...} or {"application": {...}}
+    """
+    application = payload.get("application", payload)
 
     try:
-        pipeline = _load_pipeline()
+        # Pydantic schema validation
+        from .schemas import LoanApplication
 
-        # Predict PD
-        proba = pipeline.predict_proba(df_row)[:, 1][0]
-        pd_value = float(proba)
+        app_model = LoanApplication.model_validate(application)
+        pd_val, _df = registry.predict_from_payload(app_model.model_dump())
+        return PredictionResponse(pd=pd_val, model_version=registry.version())
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
-        risk_band = "Low" if pd_value < 0.1 else "Medium" if pd_value < 0.3 else "High"
 
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Prediction error: %s", exc)
-        raise HTTPException(status_code=500, detail="Prediction error") from exc
+@app.post("/explain", response_model=ExplainResponse)
+def explain(
+    req: ExplainRequest,
+    registry: ModelRegistry = Depends(get_registry),
+) -> ExplainResponse:
+    pd_val, df = registry.predict_from_payload(req.application.model_dump())
 
-    # SHAP explanations (best-effort, optionally disabled)
-    top_factors: list[FeatureContribution] = []
-    if ENABLE_SHAP:
-        try:
-            shap_contribs = explain_instance(df_row_raw, top_n=5)
-            top_factors = [
-                FeatureContribution(feature=str(item["feature"]), shap_value=item["shap_value"])
-                for item in shap_contribs
-            ]
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("SHAP explanation failed: %s", exc)
-            top_factors = []
+    meta = {
+        "top_k": req.top_k,
+        "note": "Attributions sorted by |shap_value| desc (class=1 probability).",
+    }
 
-    return ScoreResponse(prob_default=pd_value, risk_band=risk_band, top_factors=top_factors)
+    base_value = None
+    attributions: list[FeatureAttribution] = []
+
+    try:
+        base_value_raw, shap_vec = compute_shap_for_single_row(registry._model, df)  # noqa: SLF001
+        attr_dicts = format_top_attributions(df, shap_vec, top_k=req.top_k)
+        attributions = [FeatureAttribution(**a) for a in attr_dicts]
+        base_value = base_value_raw if req.include_base_value else None
+    except Exception as e:
+        # best-effort response
+        meta["explain_error"] = str(e)
+        base_value = None
+        attributions = []
+
+    return ExplainResponse(
+        pd=pd_val,
+        model_version=registry.version(),
+        base_value=base_value,
+        attributions=attributions,
+        meta=meta,
+    )
