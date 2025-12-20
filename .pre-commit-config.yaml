@@ -11,6 +11,12 @@ repos:
       - id: ruff-format
         types_or: [ python ]
 
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.16.0
+    hooks:
+      - id: gitleaks
+        args: [ "--redact", "--verbose" ]
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

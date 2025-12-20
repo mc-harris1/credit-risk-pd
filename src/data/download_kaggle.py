@@ -18,12 +18,12 @@ from src.config import RAW_DATA_DIR  # noqa: E402
 # Default Kaggle dataset slug
 DEFAULT_DATASET_SLUG = "wordsforthewise/lending-club"
 
-DEFAULT_OUTPUT_DIR = RAW_DATA_DIR
+# DEFAULT_OUTPUT_DIR = RAW_DATA_DIR
 
 
 def download_dataset(
     dataset_slug: str = DEFAULT_DATASET_SLUG,
-    output_dir: Path = Path(DEFAULT_OUTPUT_DIR),
+    output_dir: Path = Path(RAW_DATA_DIR),
     unzip: bool = True,
 ) -> None:
     """
@@ -58,7 +58,7 @@ def download_dataset(
     print("Download complete.")
 
 
-def cleanup_output_dir(output_dir: Path = Path(DEFAULT_OUTPUT_DIR)) -> None:
+def cleanup_output_dir(output_dir: Path = Path(RAW_DATA_DIR)) -> None:
     """
     Normalize Kaggle raw data layout.
 
@@ -166,12 +166,12 @@ def main(argv: list[str] | None = None) -> None:
 
     download_dataset(
         dataset_slug=args.dataset,
-        output_dir=Path(DEFAULT_OUTPUT_DIR),
+        output_dir=Path(RAW_DATA_DIR),
         unzip=unzip,
     )
 
     cleanup_output_dir(
-        output_dir=Path(DEFAULT_OUTPUT_DIR),
+        output_dir=Path(RAW_DATA_DIR),
     )
 
 

@@ -1,17 +1,40 @@
-# Exclude raw datasets and large artifacts from build context
-data/raw/
-models/artifacts/*
-!models/artifacts/.gitkeep
-
-# Python/IDE files
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
 
-# Local environment
-.env
+# Tooling
+.ipynb_checkpoints/
+pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage.xml
+htmlcov/
 
-# macOS
+# Git
+.git/
+.gitignore
+
+# OS
 .DS_Store
 
-# Other
-*.log
+# Data artifacts (keep only what you truly need at runtime)
+data/raw/
+data/external/
+
+# Build outputs
+dist/
+build/
+
+# Secrets / env
+.env
+.env.*
+*.pem
+*.key
+
+# Streamlit cache
+.streamlit/cache/

@@ -142,13 +142,68 @@ jobs:
           path: data/artifacts/runs/explain/ci/
 
   docker-build:
+    name: Docker build (api + app)
     runs-on: ubuntu-latest
     needs: test
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: api
+            dockerfile: docker/Dockerfile.api
+            image_suffix: api
+          - component: app
+            dockerfile: docker/Dockerfile.app
+            image_suffix: app
+
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_BASE: credit-risk-pd
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Docker image with consistent tags
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Optional: if you later want to push to GHCR, uncomment login + add packages: write
+      # - name: Log in to GHCR
+      #   uses: docker/login-action@v3
+      #   with:
+      #     registry: ${{ env.REGISTRY }}
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags
+        id: meta
+        shell: bash
         run: |
-          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/credit-risk-pd"
-          docker build -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest -f docker/Dockerfile .
+          OWNER_LC="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          IMAGE="${{ env.REGISTRY }}/${OWNER_LC}/${{ env.IMAGE_BASE }}-${{ matrix.image_suffix }}"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+
+          # Tag 'latest' only on push to main/master (not PRs)
+          if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref_name }}" == "main" || "${{ github.ref_name }}" == "master" ) ]]; then
+            echo "latest_tag=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest_tag=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build ${{ matrix.component }} image (with cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ github.sha }}
+            ${{ steps.meta.outputs.image }}${{ steps.meta.outputs.latest_tag == 'true' && ':latest' || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false

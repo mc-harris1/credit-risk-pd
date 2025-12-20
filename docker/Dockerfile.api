@@ -1,0 +1,36 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_SYSTEM_PYTHON=1 \
+    PIP_NO_CACHE_DIR=1
+
+# System deps
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      curl \
+      build-essential \
+      ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy dependency files first for caching
+COPY pyproject.toml ./
+COPY uv.lock ./
+COPY README.md ./
+
+# Install ONLY prod deps from the lock (deterministic)
+RUN uv sync --no-dev --frozen
+
+# Copy runtime code + artifacts
+COPY src ./src
+COPY models ./models
+
+EXPOSE 8000
+
+CMD ["sh","-c","uv run uvicorn src.serving.api:app --host 0.0.0.0 --port ${PORT:-8000}"]
