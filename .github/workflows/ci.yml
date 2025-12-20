@@ -142,13 +142,82 @@ jobs:
           path: data/artifacts/runs/explain/ci/
 
   docker-build:
+    name: Docker build (api + app)
     runs-on: ubuntu-latest
     needs: test
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: api
+            dockerfile: docker/Dockerfile.api
+            image_suffix: api
+          - component: app
+            dockerfile: docker/Dockerfile.app
+            image_suffix: app
+
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_BASE: credit-risk-pd
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build Docker image with consistent tags
+      - name: "Debug: list docker dir and verify Dockerfile"
+        shell: bash
         run: |
-          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/credit-risk-pd"
-          docker build -t $IMAGE_NAME:${{ github.sha }} -t $IMAGE_NAME:latest -f docker/Dockerfile .
+          set -euo pipefail
+          echo "Repo root: $(pwd)"
+          ls -lah
+          echo "---- docker/ ----"
+          ls -lah docker || true
+          echo "Expecting Dockerfile at: ${{ matrix.dockerfile }}"
+          test -f "${{ matrix.dockerfile }}"
+          echo "OK: found ${{ matrix.dockerfile }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Compute image name + tags
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          OWNER_LC="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          IMAGE="${{ env.REGISTRY }}/${OWNER_LC}/${{ env.IMAGE_BASE }}-${{ matrix.image_suffix }}"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${{ github.event_name }}" == "push" && ( "${{ github.ref_name }}" == "main" || "${{ github.ref_name }}" == "master" ) ]]; then
+            echo "latest_tag=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest_tag=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build ${{ matrix.component }} image (with cache, load locally)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          load: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:${{ github.sha }}
+            ${{ steps.meta.outputs.image }}${{ steps.meta.outputs.latest_tag == 'true' && ':latest' || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      # Optional: quick sanity check that the image exists locally after build
+      - name: Show built image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker images | head -n 50
+          echo "Built:"
+          echo "  ${{ steps.meta.outputs.image }}:${{ github.sha }}"

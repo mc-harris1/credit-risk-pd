@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.responses import JSONResponse
 
 from .registry import ModelRegistry, ModelRegistryError, get_registry
@@ -35,9 +35,7 @@ def _shap_error_handler(_, exc: ShapError):
 
 
 def _risk_band_from_pd(pd_val: float) -> str:
-    """
-    Simple banding. Tune thresholds to match your business policy.
-    """
+    """Simple banding. Tune thresholds to match your business policy."""
     if pd_val < 0.10:
         return "Low"
     if pd_val < 0.25:
@@ -45,24 +43,56 @@ def _risk_band_from_pd(pd_val: float) -> str:
     return "High"
 
 
+# -----------------------------
+# Health endpoints
+# -----------------------------
 @app.get("/health", response_model=HealthResponse)
 def health(registry: ModelRegistry = Depends(get_registry)) -> HealthResponse:
+    """
+    App Runner readiness/liveness endpoint.
+
+    - Returns 200 always unless something truly exceptional happens.
+    - Tries to ensure the model is loaded (warm-up).
+    - Indicates model_loaded and model_version.
+    """
+    loaded = False
+    version = "unknown"
+
     try:
+        # Prefer cheap checks first
+        version = registry.version()
+
         loaded = registry.is_loaded()
         if not loaded:
             registry.load()
             loaded = True
     except Exception:
+        # Do NOT raise here; keep endpoint stable for platform health checks.
         loaded = False
 
-    return HealthResponse(model_loaded=loaded, model_version=registry.version())
+    return HealthResponse(model_loaded=loaded, model_version=version)
 
 
+@app.get("/ready", status_code=status.HTTP_204_NO_CONTENT)
+def ready(registry: ModelRegistry = Depends(get_registry)) -> Response:
+    """
+    Strict readiness probe (optional). Returns:
+      - 204 if model is loaded
+      - 503 if not ready
+    """
+    try:
+        if registry.is_loaded():
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except Exception:
+        pass
+    raise HTTPException(status_code=503, detail="model_not_ready")
+
+
+# -----------------------------
+# Prediction
+# -----------------------------
 @app.post("/predict", response_model=PredictionResponse)
-def predict(
-    payload: dict,
-    registry: ModelRegistry = Depends(get_registry),
-) -> PredictionResponse:
+def predict(payload: dict, registry: ModelRegistry = Depends(get_registry)) -> PredictionResponse:
     application = payload.get("application", payload)
 
     try:
@@ -77,7 +107,7 @@ def predict(
         top_factors: list[FeatureAttribution] = []
         shap_error: Optional[str] = None
 
-        # ✅ Attempt SHAP and keep the error if it fails
+        # Attempt SHAP and keep the error if it fails (never fail prediction on SHAP)
         try:
             base_value, shap_vec = compute_shap_for_single_row(registry._model, df)  # noqa: SLF001
             attr_dicts = format_top_attributions(df, shap_vec, top_k=10)
@@ -100,10 +130,12 @@ def predict(
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
+# -----------------------------
+# Explain
+# -----------------------------
 @app.post("/explain", response_model=ExplainResponse)
 def explain(
-    req: ExplainRequest,
-    registry: ModelRegistry = Depends(get_registry),
+    req: ExplainRequest, registry: ModelRegistry = Depends(get_registry)
 ) -> ExplainResponse:
     pd_val, df = registry.predict_from_payload(req.application.model_dump())
 

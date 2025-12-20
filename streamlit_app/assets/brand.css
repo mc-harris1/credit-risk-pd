@@ -1,0 +1,202 @@
+/* =========================================================
+   mc-harris.dev — Streamlit Brand Layer (DROP-IN)
+   Streamlit 1.51.0 + Safari-safe
+   - Keeps sidebar toggle working (does NOT touch header/toolbar)
+   - Matches portfolio theme
+   - Removes caret AND the lingering caret bar in Streamlit selectboxes
+   ========================================================= */
+
+:root{
+  --bg:#050816;
+  --bg-alt:#0b1020;
+  --card-bg:#111827;
+  --accent:#3b82f6;
+  --accent-soft: rgba(59,130,246,0.12);
+  --text:#e5e7eb;
+  --muted:#9ca3af;
+  --border:#1f2933;
+  --radius:16px;
+  --shadow-soft: 0 18px 45px rgba(0,0,0,0.55);
+  --max-width:980px;
+}
+
+/* ---------------------------------------------------------
+   App background / layout
+--------------------------------------------------------- */
+.stApp{
+  background: radial-gradient(circle at top, #111827 0, #020617 55%, #000 100%);
+  color: var(--text);
+}
+
+.block-container{
+  max-width: var(--max-width);
+  padding-top: 1.25rem;
+}
+
+/* ---------------------------------------------------------
+   SAFE chrome hiding (DO NOT TOUCH HEADER/TOOLBAR)
+--------------------------------------------------------- */
+#MainMenu{ visibility: hidden; }
+footer{ visibility: hidden; }
+
+/* ---------------------------------------------------------
+   Sidebar styling
+--------------------------------------------------------- */
+section[data-testid="stSidebar"]{
+  background: rgba(17,24,39,0.96);
+  border-right: 1px solid var(--border);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+}
+
+/* ---------------------------------------------------------
+   Cards / containers
+--------------------------------------------------------- */
+div[data-testid="stMetric"],
+div[data-testid="stExpander"],
+div[data-testid="stForm"],
+div[data-testid="stVerticalBlockBorderWrapper"]{
+  background: rgba(17,24,39,0.92);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+}
+
+/* ---------------------------------------------------------
+   Inputs (number inputs etc.) + select container shell
+--------------------------------------------------------- */
+input,
+textarea,
+[data-baseweb="select"] > div{
+  background: rgba(15,23,42,0.7) !important;
+  border: 1px solid rgba(148,163,184,0.35) !important;
+  color: var(--text) !important;
+  border-radius: 12px !important;
+}
+
+input::placeholder,
+textarea::placeholder{
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------
+   Buttons
+--------------------------------------------------------- */
+.stButton > button{
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.4);
+  background: rgba(15,23,42,0.9);
+  color: var(--text);
+  padding: 0.55rem 1.1rem;
+  transition: transform .1s ease, box-shadow .1s ease, background .1s ease;
+}
+
+.stButton > button:hover{
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.stButton > button[kind="primary"]{
+  background: var(--accent);
+  color: #0b1120;
+  border-color: transparent;
+  box-shadow: 0 12px 30px rgba(37,99,235,0.45);
+}
+
+.stButton > button[kind="primary"]:hover{
+  box-shadow: 0 18px 38px rgba(37,99,235,0.55);
+}
+
+/* ---------------------------------------------------------
+   Dataframes
+--------------------------------------------------------- */
+[data-testid="stDataFrame"]{
+  background: rgba(17,24,39,0.92);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+/* ---------------------------------------------------------
+   Charts
+--------------------------------------------------------- */
+.vega-embed{
+  background: transparent !important;
+}
+
+/* ---------------------------------------------------------
+   Links & text
+--------------------------------------------------------- */
+a{
+  color: #93c5fd;
+  text-decoration: none;
+}
+a:hover{
+  color: #bfdbfe;
+  text-decoration: underline;
+}
+.muted{
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------
+   Scrollbar polish (WebKit)
+--------------------------------------------------------- */
+::-webkit-scrollbar{ width: 10px; }
+::-webkit-scrollbar-track{ background: rgba(15,23,42,0.8); }
+::-webkit-scrollbar-thumb{
+  background: rgba(148,163,184,0.35);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover{ background: rgba(148,163,184,0.55); }
+
+/* =========================================================
+   STREAMLIT SELECTBOX (BaseWeb) — KILL THE CARET BAR
+   Safari may still show a static caret even with caret-color.
+   Solution: hide the underlying editable element completely.
+   ========================================================= */
+
+/* Ensure select feels like a dropdown */
+[data-baseweb="select"]{
+  cursor: pointer !important;
+}
+
+/* 1) Hide caret if any engine still tries to paint it */
+[data-baseweb="select"] input,
+[data-baseweb="select"] [contenteditable="true"]{
+  caret-color: transparent !important;
+}
+
+/* 2) Safari-proof: remove the editable element from view so no caret can render.
+      This keeps the visible selected value (rendered elsewhere) intact. */
+[data-baseweb="select"] input,
+[data-baseweb="select"] [contenteditable="true"]{
+  position: absolute !important;
+  left: -10000px !important;
+  top: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* 3) Remove any focus outline/box-shadow from internal nodes */
+[data-baseweb="select"] *:focus,
+[data-baseweb="select"] *:focus-visible{
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* 4) Remove BaseWeb pseudo-element focus artifacts (some builds use ::before/::after) */
+[data-baseweb="select"] > div::before,
+[data-baseweb="select"] > div::after,
+[data-baseweb="select"] *::before,
+[data-baseweb="select"] *::after{
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* 5) Keep the select container styling stable on focus (no extra rings) */
+[data-baseweb="select"]:focus-within > div{
+  border-color: rgba(148,163,184,0.35) !important;
+  box-shadow: none !important;
+}
