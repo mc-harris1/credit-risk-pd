@@ -23,7 +23,7 @@ jobs:
             dockerfile: docker/Dockerfile.api
             image: api
           - name: ui
-            dockerfile: docker/Dockerfile.ui
+            dockerfile: docker/Dockerfile.app
             image: ui
 
     steps:
