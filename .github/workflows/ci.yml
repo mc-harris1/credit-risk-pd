@@ -142,7 +142,7 @@ jobs:
           path: data/artifacts/runs/explain/ci/
 
   docker-build:
-    name: Docker build (api + app)
+    name: Docker build (api + ui)
     runs-on: ubuntu-latest
     needs: test
 
@@ -153,9 +153,9 @@ jobs:
           - component: api
             dockerfile: docker/Dockerfile.api
             image_suffix: api
-          - component: app
-            dockerfile: docker/Dockerfile.app
-            image_suffix: app
+          - component: ui
+            dockerfile: docker/Dockerfile.ui
+            image_suffix: ui
 
     permissions:
       contents: read
