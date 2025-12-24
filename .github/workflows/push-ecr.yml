@@ -16,7 +16,7 @@ env:
 
   # ECR repository names (must already exist, or let the workflow create them)
   ECR_REPO_API: credit-risk-api
-  ECR_REPO_UI: credit-risk-app
+  ECR_REPO_UI: credit-risk-ui
 
 jobs:
   build-and-push:
@@ -29,10 +29,10 @@ jobs:
             ecr_repo: credit-risk-api
             dockerfile: docker/Dockerfile.api
             image_suffix: api
-          - name: app
-            ecr_repo: credit-risk-app
-            dockerfile: docker/Dockerfile.app
-            image_suffix: app
+          - name: ui
+            ecr_repo: credit-risk-ui
+            dockerfile: docker/Dockerfile.ui
+            image_suffix: ui
 
     steps:
       - name: Checkout
